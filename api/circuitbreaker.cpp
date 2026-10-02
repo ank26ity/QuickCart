@@ -3,12 +3,9 @@
 #include <QtCore/QRandomGenerator>
 
 CircuitBreaker::CircuitBreaker(int failureThreshold, int recoveryTimeoutMs, QObject *parent)
-    : QObject(parent), m_failureThreshold(failureThreshold), m_recoveryTimeoutMs(recoveryTimeoutMs)
-{
-}
+    : QObject(parent), m_failureThreshold(failureThreshold), m_recoveryTimeoutMs(recoveryTimeoutMs) {}
 
-QString CircuitBreaker::cleanEndpointKey(const QString &endpoint) const
-{
+QString CircuitBreaker::cleanEndpointKey(const QString &endpoint) const {
     int queryIdx = endpoint.indexOf('?');
     QString path = (queryIdx != -1) ? endpoint.left(queryIdx) : endpoint;
     // Group resource IDs e.g. /api/orders/123 -> /api/orders
@@ -19,8 +16,7 @@ QString CircuitBreaker::cleanEndpointKey(const QString &endpoint) const
     return path;
 }
 
-bool CircuitBreaker::canExecute(const QString &endpoint)
-{
+bool CircuitBreaker::canExecute(const QString &endpoint) {
     QString key = cleanEndpointKey(endpoint);
     qint64 now = QDateTime::currentMSecsSinceEpoch();
 
@@ -49,10 +45,10 @@ bool CircuitBreaker::canExecute(const QString &endpoint)
     return true;
 }
 
-void CircuitBreaker::recordSuccess(const QString &endpoint)
-{
+void CircuitBreaker::recordSuccess(const QString &endpoint) {
     QString key = cleanEndpointKey(endpoint);
-    if (!m_circuits.contains(key)) return;
+    if (!m_circuits.contains(key))
+        return;
 
     CircuitEntry &entry = m_circuits[key];
     if (entry.state == State::HalfOpen) {
@@ -68,8 +64,7 @@ void CircuitBreaker::recordSuccess(const QString &endpoint)
     }
 }
 
-void CircuitBreaker::recordFailure(const QString &endpoint)
-{
+void CircuitBreaker::recordFailure(const QString &endpoint) {
     QString key = cleanEndpointKey(endpoint);
     qint64 now = QDateTime::currentMSecsSinceEpoch();
 
@@ -88,10 +83,10 @@ void CircuitBreaker::recordFailure(const QString &endpoint)
     }
 }
 
-CircuitBreaker::State CircuitBreaker::getState(const QString &endpoint)
-{
+CircuitBreaker::State CircuitBreaker::getState(const QString &endpoint) {
     QString key = cleanEndpointKey(endpoint);
-    if (!m_circuits.contains(key)) return State::Closed;
+    if (!m_circuits.contains(key))
+        return State::Closed;
     CircuitEntry &entry = m_circuits[key];
     if (entry.state == State::Open) {
         qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -102,8 +97,7 @@ CircuitBreaker::State CircuitBreaker::getState(const QString &endpoint)
     return entry.state;
 }
 
-int CircuitBreaker::calculateBackoffMs(int attempt, int baseDelayMs, int maxDelayMs)
-{
+int CircuitBreaker::calculateBackoffMs(int attempt, int baseDelayMs, int maxDelayMs) {
     int expDelay = baseDelayMs * (1 << qMin(attempt, 6)); // cap exponential multiplier at 64x
     int capped = qMin(expDelay, maxDelayMs);
     // Add 10-25% randomized full jitter

@@ -11,17 +11,13 @@
 #include <QtQml/QQmlContext>
 #include "../../core/thememanager.h"
 
-class Setup : public QObject
-{
+class Setup : public QObject {
     Q_OBJECT
 public:
-    Setup() {
-        qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
-    }
+    Setup() { qputenv("QT_QUICK_CONTROLS_STYLE", "Basic"); }
 
 public slots:
-    void qmlEngineAvailable(QQmlEngine *engine)
-    {
+    void qmlEngineAvailable(QQmlEngine *engine) {
         engine->addImportPath(QStringLiteral(QUICKCART_IMPORT_DIR));
         engine->addImportPath(QStringLiteral(QUICKCART_SOURCE_DIR "/qml"));
         engine->addImportPath(QStringLiteral(QUICKCART_SOURCE_DIR));

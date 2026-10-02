@@ -8,30 +8,21 @@
 #include <QtGui/QGuiApplication>
 #include "../../core/thememanager.h"
 
-class TestThemeManager : public QObject
-{
+class TestThemeManager : public QObject {
     Q_OBJECT
 
 private slots:
-    void init()
-    {
-        ThemeManager::instance()->resetForTesting();
-    }
+    void init() { ThemeManager::instance()->resetForTesting(); }
 
-    void cleanup()
-    {
-        ThemeManager::instance()->resetForTesting();
-    }
+    void cleanup() { ThemeManager::instance()->resetForTesting(); }
 
-    void testDefaultMode()
-    {
+    void testDefaultMode() {
         ThemeManager *tm = ThemeManager::instance();
         QCOMPARE(tm->mode(), QStringLiteral("system"));
         QCOMPARE(tm->reducedMotion(), false);
     }
 
-    void testSetLightMode()
-    {
+    void testSetLightMode() {
         ThemeManager *tm = ThemeManager::instance();
         QSignalSpy modeSpy(tm, &ThemeManager::modeChanged);
         QSignalSpy darkSpy(tm, &ThemeManager::isDarkChanged);
@@ -44,8 +35,7 @@ private slots:
         QVERIFY(darkSpy.count() >= 1);
     }
 
-    void testSetDarkMode()
-    {
+    void testSetDarkMode() {
         ThemeManager *tm = ThemeManager::instance();
         tm->setMode(QStringLiteral("light")); // First set light
 
@@ -60,8 +50,7 @@ private slots:
         QCOMPARE(darkSpy.count(), 1);
     }
 
-    void testToggleTheme()
-    {
+    void testToggleTheme() {
         ThemeManager *tm = ThemeManager::instance();
         tm->setMode(QStringLiteral("dark"));
         QVERIFY(tm->isDark());
@@ -75,8 +64,7 @@ private slots:
         QVERIFY(tm->isDark());
     }
 
-    void testReducedMotion()
-    {
+    void testReducedMotion() {
         ThemeManager *tm = ThemeManager::instance();
         QSignalSpy motionSpy(tm, &ThemeManager::reducedMotionChanged);
 
@@ -89,8 +77,7 @@ private slots:
         QCOMPARE(motionSpy.count(), 2);
     }
 
-    void testPersistence()
-    {
+    void testPersistence() {
         ThemeManager::instance()->setMode(QStringLiteral("light"));
         ThemeManager::instance()->setReducedMotion(true);
 
@@ -100,8 +87,7 @@ private slots:
         QCOMPARE(settings.value("reducedMotion").toBool(), true);
     }
 
-    void testLiveColorSchemeChange()
-    {
+    void testLiveColorSchemeChange() {
         ThemeManager *tm = ThemeManager::instance();
         tm->setMode(QStringLiteral("system"));
 
@@ -109,8 +95,8 @@ private slots:
 
         // Simulate live system color scheme changes if style hints are available
         if (QGuiApplication::styleHints()) {
-            emit QGuiApplication::styleHints()->colorSchemeChanged(Qt::ColorScheme::Light);
-            emit QGuiApplication::styleHints()->colorSchemeChanged(Qt::ColorScheme::Dark);
+            emit QGuiApplication::styleHints() -> colorSchemeChanged(Qt::ColorScheme::Light);
+            emit QGuiApplication::styleHints() -> colorSchemeChanged(Qt::ColorScheme::Dark);
         }
 
         // System mode is preserved across live changes

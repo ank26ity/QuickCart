@@ -28,8 +28,7 @@
 #include <QtCore/QJsonObject>
 #include <QtCore/QVariantMap>
 
-class AuthService : public QObject
-{
+class AuthService : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool isLoggedIn READ isLoggedIn NOTIFY authStateChanged)
     Q_PROPERTY(QString userId READ userId NOTIFY userProfileChanged)
@@ -46,7 +45,7 @@ class AuthService : public QObject
 
 public:
     explicit AuthService(QObject *parent = nullptr);
-    static AuthService* instance();
+    static AuthService *instance();
 
     bool isLoggedIn() const;
     QString userId() const;
@@ -87,7 +86,8 @@ signals:
     void sessionExpired();
 
 private:
-    void setUser(const QJsonObject &userObj, const QString &accessToken = QString(), const QString &refreshToken = QString());
+    void setUser(const QJsonObject &userObj, const QString &accessToken = QString(),
+                 const QString &refreshToken = QString());
     void syncWithRBAC();
     QString getDeviceFingerprint() const;
 

@@ -7,23 +7,15 @@
 #include <QtTest/QtTest>
 #include "../../security/securestorage.h"
 
-class TestSecureStorage : public QObject
-{
+class TestSecureStorage : public QObject {
     Q_OBJECT
 
 private slots:
-    void init()
-    {
-        SecureStorage::instance()->resetForTesting();
-    }
+    void init() { SecureStorage::instance()->resetForTesting(); }
 
-    void cleanup()
-    {
-        SecureStorage::instance()->resetForTesting();
-    }
+    void cleanup() { SecureStorage::instance()->resetForTesting(); }
 
-    void testAesGcmEncryptionDecryptionRoundtrip()
-    {
+    void testAesGcmEncryptionDecryptionRoundtrip() {
         QByteArray key = SecureStorage::generateRandomKey(32);
         QCOMPARE(key.size(), 32);
 
@@ -44,8 +36,7 @@ private slots:
         QVERIFY(SecureStorage::decryptAesGcm(ciphertext, "short_key").isEmpty());
     }
 
-    void testAesGcmTamperDetection()
-    {
+    void testAesGcmTamperDetection() {
         QByteArray key = SecureStorage::generateRandomKey(32);
         QByteArray plaintext = "QuickCart critical bank/UPI payment token";
         QByteArray ciphertext = SecureStorage::encryptAesGcm(plaintext, key);
@@ -70,8 +61,7 @@ private slots:
         QVERIFY2(wrongKeyDecrypted.isEmpty(), "Decryption with incorrect key must fail authentication");
     }
 
-    void testAesGcmNonceUniqueness()
-    {
+    void testAesGcmNonceUniqueness() {
         QByteArray key = SecureStorage::generateRandomKey(32);
         QByteArray plaintext = "Identical repeated token";
 
@@ -89,8 +79,7 @@ private slots:
         QCOMPARE(SecureStorage::decryptAesGcm(cipher2, key), plaintext);
     }
 
-    void testPbkdf2KeyDerivationWith100kIterations()
-    {
+    void testPbkdf2KeyDerivationWith100kIterations() {
         QString password = QStringLiteral("P@ssw0rd!SuperSecretQuickCart2026");
         QByteArray salt = "QuickCart_Salt_128bit_Entropy_#49";
 
@@ -107,8 +96,7 @@ private slots:
         QVERIFY(key1 != key3);
     }
 
-    void testWindowsCredentialManagerBackend()
-    {
+    void testWindowsCredentialManagerBackend() {
         SecureStorage *store = SecureStorage::instance();
         store->setBackendForTesting(SecureStorage::Backend::WindowsCredManager);
         QCOMPARE(store->activeBackend(), SecureStorage::Backend::WindowsCredManager);
@@ -123,8 +111,7 @@ private slots:
         QVERIFY(store->getSecret(testKey).isEmpty());
     }
 
-    void testAndroidKeystoreBackend()
-    {
+    void testAndroidKeystoreBackend() {
         SecureStorage *store = SecureStorage::instance();
         store->setBackendForTesting(SecureStorage::Backend::AndroidKeystore);
         QCOMPARE(store->activeBackend(), SecureStorage::Backend::AndroidKeystore);
@@ -139,8 +126,7 @@ private slots:
         QVERIFY(store->getSecret(testKey).isEmpty());
     }
 
-    void testEncryptedVaultBackend()
-    {
+    void testEncryptedVaultBackend() {
         SecureStorage *store = SecureStorage::instance();
         store->setBackendForTesting(SecureStorage::Backend::EncryptedVault);
         QCOMPARE(store->activeBackend(), SecureStorage::Backend::EncryptedVault);
@@ -155,8 +141,7 @@ private slots:
         QVERIFY(store->getSecret(testKey).isEmpty());
     }
 
-    void testSaveAndRetrieveSecretDefault()
-    {
+    void testSaveAndRetrieveSecretDefault() {
         SecureStorage *store = SecureStorage::instance();
         QString testKey = QStringLiteral("unit_test_api_key");
         QString testValue = QStringLiteral("secret_jwt_payload_xyz_987");
@@ -168,8 +153,7 @@ private slots:
         QVERIFY(store->getSecret(testKey).isEmpty());
     }
 
-    void testTokenManagement()
-    {
+    void testTokenManagement() {
         SecureStorage *store = SecureStorage::instance();
         QString access = QStringLiteral("ey...access.token.jwt");
         QString refresh = QStringLiteral("ey...refresh.token.jwt");
@@ -183,14 +167,12 @@ private slots:
         QVERIFY(store->refreshToken().isEmpty());
     }
 
-    void testNonexistentSecretReturnsEmpty()
-    {
+    void testNonexistentSecretReturnsEmpty() {
         SecureStorage *store = SecureStorage::instance();
         QVERIFY(store->getSecret(QStringLiteral("non_existent_key_999")).isEmpty());
     }
 
-    void testClearAllSecrets()
-    {
+    void testClearAllSecrets() {
         SecureStorage *store = SecureStorage::instance();
         store->saveTokens("token_a", "token_r");
         store->clearAllSecrets();
@@ -199,8 +181,7 @@ private slots:
         QVERIFY(store->refreshToken().isEmpty());
     }
 
-    void testMasterKeyFileFallback()
-    {
+    void testMasterKeyFileFallback() {
         SecureStorage *store = SecureStorage::instance();
         store->resetForTesting();
 
@@ -227,8 +208,7 @@ private slots:
         store->setBackendForTesting(SecureStorage::Backend::PlatformDefault);
     }
 
-    void testWindowsCredentialManagerSizeLimit()
-    {
+    void testWindowsCredentialManagerSizeLimit() {
         SecureStorage *store = SecureStorage::instance();
         store->setBackendForTesting(SecureStorage::Backend::WindowsCredManager);
 
@@ -249,8 +229,7 @@ private slots:
         store->setBackendForTesting(SecureStorage::Backend::PlatformDefault);
     }
 
-    void testMultiPlatformBackends()
-    {
+    void testMultiPlatformBackends() {
         SecureStorage *store = SecureStorage::instance();
 
         // Windows backend

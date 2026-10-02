@@ -82,8 +82,7 @@ struct OrderDto {
 
 // ── ApiClient Declaration ────────────────────────────────────────────────────
 
-class ApiClient : public QObject
-{
+class ApiClient : public QObject {
     Q_OBJECT
 
 public:
@@ -93,7 +92,7 @@ public:
     using VoidCallback = std::function<void(const Result<void> &result)>;
 
     explicit ApiClient(QObject *parent = nullptr);
-    static ApiClient* instance();
+    static ApiClient *instance();
 
     /**
      * @brief Map HTTP response status and raw body into a strongly-typed AppError.
@@ -118,8 +117,8 @@ public:
     /**
      * @brief Register a new user account.
      */
-    void registerUser(const QString &email, const QString &password, const QString &role,
-                      const QString &name, AuthCallback callback);
+    void registerUser(const QString &email, const QString &password, const QString &role, const QString &name,
+                      AuthCallback callback);
 
     /**
      * @brief Fetch nearby shops with coordinate filtering.

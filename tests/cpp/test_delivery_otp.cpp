@@ -15,27 +15,21 @@
 using Status = OrderStateMachine::OrderStatus;
 using Actor = OrderStateMachine::OrderActor;
 
-class TestDeliveryOtp : public QObject
-{
+class TestDeliveryOtp : public QObject {
     Q_OBJECT
 
 private:
     MockApiServer m_server;
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         QVERIFY(m_server.start());
         NetworkManager::instance()->setBaseUrl(m_server.url());
     }
 
-    void cleanupTestCase()
-    {
-        m_server.stop();
-    }
+    void cleanupTestCase() { m_server.stop(); }
 
-    void testOtpValidationFormats()
-    {
+    void testOtpValidationFormats() {
         // Valid 4-digit numeric OTPs
         QVERIFY(Validators::validateOtp(QStringLiteral("1234"), 4).isSuccess());
         QVERIFY(Validators::validateOtp(QStringLiteral("0000"), 4).isSuccess());
@@ -57,8 +51,7 @@ private slots:
         QVERIFY(Validators::validateOtp(QStringLiteral("12345"), 6).isError());
     }
 
-    void testServerSideOtpGenerationAndVerification()
-    {
+    void testServerSideOtpGenerationAndVerification() {
         // 1. Seed order on server in picked_up state
         QString orderId = QStringLiteral("order_test_otp_99");
         QJsonObject order;
@@ -77,15 +70,12 @@ private slots:
         bool wrongSuccess = true;
         QString wrongError;
 
-        NetworkManager::instance()->post(
-            QString("/api/orders/%1/verify-delivery-otp").arg(orderId),
-            wrongReq,
-            [&](bool success, const QJsonDocument &, const QString &err) {
-                wrongDone = true;
-                wrongSuccess = success;
-                wrongError = err;
-            }
-        );
+        NetworkManager::instance()->post(QString("/api/orders/%1/verify-delivery-otp").arg(orderId), wrongReq,
+                                         [&](bool success, const QJsonDocument &, const QString &err) {
+                                             wrongDone = true;
+                                             wrongSuccess = success;
+                                             wrongError = err;
+                                         });
 
         QTRY_VERIFY_WITH_TIMEOUT(wrongDone, 3000);
         QVERIFY(!wrongSuccess); // Must be rejected by server
@@ -98,15 +88,12 @@ private slots:
         bool correctSuccess = false;
         QJsonObject respObj;
 
-        NetworkManager::instance()->post(
-            QString("/api/orders/%1/verify-delivery-otp").arg(orderId),
-            correctReq,
-            [&](bool success, const QJsonDocument &doc, const QString &) {
-                correctDone = true;
-                correctSuccess = success;
-                respObj = doc.object();
-            }
-        );
+        NetworkManager::instance()->post(QString("/api/orders/%1/verify-delivery-otp").arg(orderId), correctReq,
+                                         [&](bool success, const QJsonDocument &doc, const QString &) {
+                                             correctDone = true;
+                                             correctSuccess = success;
+                                             respObj = doc.object();
+                                         });
 
         QTRY_VERIFY_WITH_TIMEOUT(correctDone, 3000);
         QVERIFY(correctSuccess); // Accepted by server
@@ -118,8 +105,7 @@ private slots:
         QCOMPARE(res.value(), Status::Delivered);
     }
 
-    void testOtpGenerationEntropy()
-    {
+    void testOtpGenerationEntropy() {
         // Verify randomness and bounds of generated 4-digit OTPs
         QSet<QString> generatedOtps;
         for (int i = 0; i < 100; ++i) {

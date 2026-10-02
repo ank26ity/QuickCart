@@ -10,15 +10,13 @@
 #include "../../core/validators.h"
 #include "../../models/shopmodel.h"
 
-class TestLocationFallback : public QObject
-{
+class TestLocationFallback : public QObject {
     Q_OBJECT
 
 private slots:
-    void testCoordinateValidation()
-    {
+    void testCoordinateValidation() {
         // Valid coordinates
-        QVERIFY(Validators::validateCoordinates(28.6139, 77.2090).isSuccess()); // New Delhi
+        QVERIFY(Validators::validateCoordinates(28.6139, 77.2090).isSuccess());   // New Delhi
         QVERIFY(Validators::validateCoordinates(-33.8688, 151.2093).isSuccess()); // Sydney
         QVERIFY(Validators::validateCoordinates(0.0, 0.0).isSuccess());
 
@@ -31,8 +29,7 @@ private slots:
         QVERIFY(Validators::validateCoordinates(28.0, -181.0).isError());
     }
 
-    void testHaversineDistanceAccuracy()
-    {
+    void testHaversineDistanceAccuracy() {
         // New Delhi Connaught Place to India Gate (~2.3 km)
         double cpLat = 28.6315, cpLng = 77.2167;
         double igLat = 28.6129, igLng = 77.2295;
@@ -45,8 +42,7 @@ private slots:
         QVERIFY(selfDist < 0.001);
     }
 
-    void testShopModelHyperlocalFilteringAndFallback()
-    {
+    void testShopModelHyperlocalFilteringAndFallback() {
         ShopModel model;
         QJsonArray shops;
 
@@ -78,8 +74,7 @@ private slots:
         QCOMPARE(model.count(), 2);
     }
 
-    void testPermissionDeniedAndManualAddressFlow()
-    {
+    void testPermissionDeniedAndManualAddressFlow() {
         ShopModel model;
         QJsonArray shops;
 

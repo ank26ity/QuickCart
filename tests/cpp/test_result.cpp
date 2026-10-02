@@ -7,13 +7,11 @@
 #include <QtTest/QtTest>
 #include "../../core/result.h"
 
-class TestResult : public QObject
-{
+class TestResult : public QObject {
     Q_OBJECT
 
 private slots:
-    void testSuccessValue()
-    {
+    void testSuccessValue() {
         Result<int> res = Result<int>::ok(42);
         QVERIFY(res.isSuccess());
         QVERIFY(!res.isError());
@@ -21,8 +19,7 @@ private slots:
         QCOMPARE(res.valueOr(99), 42);
     }
 
-    void testErrorState()
-    {
+    void testErrorState() {
         AppError err = AppError::validation(QStringLiteral("Invalid input"), QStringLiteral("field=email"));
         Result<int> res = Result<int>::error(err);
 
@@ -35,8 +32,7 @@ private slots:
         QCOMPARE(res.valueOr(99), 99);
     }
 
-    void testVoidSpecialization()
-    {
+    void testVoidSpecialization() {
         Result<void> successRes = Result<void>::ok();
         QVERIFY(successRes.isSuccess());
         QVERIFY(!successRes.isError());
@@ -47,8 +43,7 @@ private slots:
         QCOMPARE(errRes.error().statusCode, 401);
     }
 
-    void testErrorFactories()
-    {
+    void testErrorFactories() {
         auto errForbidden = AppError::forbidden(QStringLiteral("Access denied"));
         QCOMPARE(errForbidden.category, ErrorCategory::Authorization);
         QCOMPARE(errForbidden.statusCode, 403);

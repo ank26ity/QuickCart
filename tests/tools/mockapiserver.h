@@ -15,8 +15,7 @@
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
 
-class MockApiServer : public QObject
-{
+class MockApiServer : public QObject {
     Q_OBJECT
 
 public:
@@ -50,7 +49,7 @@ private:
     quint16 m_port{0};
     int m_failCount{0};
     int m_failStatusCode{503};
-    QMap<QTcpSocket*, QByteArray> m_buffers;
+    QMap<QTcpSocket *, QByteArray> m_buffers;
 
     // In-memory mock database
     QMap<QString, QJsonObject> m_users;

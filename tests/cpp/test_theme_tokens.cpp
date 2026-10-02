@@ -11,21 +11,16 @@
 #include <QtCore/QDir>
 #include "../../core/thememanager.h"
 
-class TestThemeTokens : public QObject
-{
+class TestThemeTokens : public QObject {
     Q_OBJECT
 
 private:
     QString m_sourceDir;
 
 private slots:
-    void initTestCase()
-    {
-        m_sourceDir = QStringLiteral(QUICKCART_SOURCE_DIR);
-    }
+    void initTestCase() { m_sourceDir = QStringLiteral(QUICKCART_SOURCE_DIR); }
 
-    void testTokenCompletenessAndValidity()
-    {
+    void testTokenCompletenessAndValidity() {
         QQmlEngine engine;
         engine.addImportPath(m_sourceDir + QStringLiteral("/qml"));
         engine.addImportPath(m_sourceDir + QStringLiteral("/qml/theme"));
@@ -40,19 +35,16 @@ private slots:
         theme->setProperty("themeManager", QVariant::fromValue(tm));
 
         const QStringList requiredColorTokens = {
-            "background", "surface", "surfaceVariant", "surfaceGlass", "surfaceHeader",
-            "surfaceBorder", "border", "divider", "overlay",
-            "primary", "primaryHover", "onPrimary",
-            "secondary", "secondaryHover", "onSecondary",
-            "danger", "dangerHover", "onDanger",
-            "warning", "warningHover", "onWarning",
-            "success", "onSuccess",
-            "textPrimary", "textSecondary", "textMuted", "textInverse",
-            "inputBackground", "inputBorder", "inputBorderFocus", "inputPlaceholder"
-        };
+            "background",      "surface",     "surfaceVariant",  "surfaceGlass",   "surfaceHeader",
+            "surfaceBorder",   "border",      "divider",         "overlay",        "primary",
+            "primaryHover",    "onPrimary",   "secondary",       "secondaryHover", "onSecondary",
+            "danger",          "dangerHover", "onDanger",        "warning",        "warningHover",
+            "onWarning",       "success",     "onSuccess",       "textPrimary",    "textSecondary",
+            "textMuted",       "textInverse", "inputBackground", "inputBorder",    "inputBorderFocus",
+            "inputPlaceholder"};
 
         // Test in both Light and Dark mode
-        for (const QString &mode : { QStringLiteral("dark"), QStringLiteral("light") }) {
+        for (const QString &mode : {QStringLiteral("dark"), QStringLiteral("light")}) {
             tm->setMode(mode);
 
             for (const QString &token : requiredColorTokens) {
@@ -62,23 +54,28 @@ private slots:
                 if (!col.isValid() && val.canConvert<QString>()) {
                     col = QColor::fromString(val.toString());
                 }
-                QVERIFY2(col.isValid(), qPrintable(QString("Token %1 has invalid color in mode %2 (val=%3)").arg(token, mode, val.toString())));
+                QVERIFY2(
+                    col.isValid(),
+                    qPrintable(
+                        QString("Token %1 has invalid color in mode %2 (val=%3)").arg(token, mode, val.toString())));
             }
 
             // Verify Spacing Tokens
-            for (const QString &sp : { "space2", "space4", "space8", "space12", "space16", "space20", "space24", "space32", "space48" }) {
+            for (const QString &sp :
+                 {"space2", "space4", "space8", "space12", "space16", "space20", "space24", "space32", "space48"}) {
                 QVariant val = theme->property(sp.toUtf8().constData());
                 QVERIFY2(val.isValid() && val.toDouble() > 0, qPrintable(QString("Spacing token %1 invalid").arg(sp)));
             }
 
             // Verify Radius Tokens
-            for (const QString &rad : { "radiusSmall", "radiusMedium", "radiusLarge", "radiusXLarge", "radiusFull" }) {
+            for (const QString &rad : {"radiusSmall", "radiusMedium", "radiusLarge", "radiusXLarge", "radiusFull"}) {
                 QVariant val = theme->property(rad.toUtf8().constData());
                 QVERIFY2(val.isValid() && val.toDouble() > 0, qPrintable(QString("Radius token %1 invalid").arg(rad)));
             }
 
             // Verify Typography Scale
-            for (const QString &f : { "fontSmall", "fontBody", "fontSubheading", "fontHeading", "fontTitle", "fontDisplay" }) {
+            for (const QString &f :
+                 {"fontSmall", "fontBody", "fontSubheading", "fontHeading", "fontTitle", "fontDisplay"}) {
                 QVariant val = theme->property(f.toUtf8().constData());
                 QVERIFY2(val.isValid() && val.toInt() >= 10, qPrintable(QString("Font token %1 invalid").arg(f)));
             }

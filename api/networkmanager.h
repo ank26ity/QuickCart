@@ -16,8 +16,7 @@
 #include "circuitbreaker.h"
 #include "networkinterceptor.h"
 
-class NetworkManager : public QObject
-{
+class NetworkManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString baseUrl READ baseUrl WRITE setBaseUrl NOTIFY baseUrlChanged)
     Q_PROPERTY(bool isOnline READ isOnline NOTIFY onlineStateChanged)
@@ -27,7 +26,7 @@ public:
     using ResultCallback = std::function<void(const Result<QJsonDocument> &result)>;
 
     explicit NetworkManager(QObject *parent = nullptr);
-    static NetworkManager* instance();
+    static NetworkManager *instance();
 
     QString baseUrl() const;
     void setBaseUrl(const QString &url);
@@ -49,7 +48,8 @@ public:
     void executeDelete(const QString &endpoint, ResultCallback callback);
 
     // Retry and Idempotency management
-    void retryRequest(const QString &verb, const QString &endpoint, const QByteArray &data, int attempt, ResultCallback callback);
+    void retryRequest(const QString &verb, const QString &endpoint, const QByteArray &data, int attempt,
+                      ResultCallback callback);
 
     /**
      * @brief Reset network manager state and clear pending queues for test isolation.
@@ -81,7 +81,8 @@ private:
     QQueue<PendingRequest> m_refreshQueue;
 
     void prepareRequest(QNetworkRequest &request, const QString &verb, const QString &endpoint);
-    void sendRequest(const QString &verb, const QString &endpoint, const QByteArray &data, int attempt, ResultCallback callback);
+    void sendRequest(const QString &verb, const QString &endpoint, const QByteArray &data, int attempt,
+                     ResultCallback callback);
     void handleTokenRefresh();
     void flushPendingQueue(bool success);
 };

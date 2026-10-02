@@ -5,8 +5,7 @@
 #include <QtCore/QString>
 #include <QtCore/QVariantMap>
 
-class AppConfig : public QObject
-{
+class AppConfig : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString environment READ environment WRITE setEnvironment NOTIFY environmentChanged)
     Q_PROPERTY(QString apiBaseUrl READ apiBaseUrl WRITE setApiBaseUrl NOTIFY apiBaseUrlChanged)
@@ -14,20 +13,18 @@ class AppConfig : public QObject
     Q_PROPERTY(int requestTimeoutMs READ requestTimeoutMs WRITE setRequestTimeoutMs NOTIFY timeoutChanged)
     Q_PROPERTY(int maxRetryAttempts READ maxRetryAttempts CONSTANT)
     Q_PROPERTY(bool isProduction READ isProduction NOTIFY environmentChanged)
-    Q_PROPERTY(qint64 baseDeliveryFeePaise READ baseDeliveryFeePaise WRITE setBaseDeliveryFeePaise NOTIFY deliveryFeeConfigChanged)
+    Q_PROPERTY(qint64 baseDeliveryFeePaise READ baseDeliveryFeePaise WRITE setBaseDeliveryFeePaise NOTIFY
+                   deliveryFeeConfigChanged)
     Q_PROPERTY(qint64 perKmFeePaise READ perKmFeePaise WRITE setPerKmFeePaise NOTIFY deliveryFeeConfigChanged)
-    Q_PROPERTY(qint64 freeDeliveryThresholdPaise READ freeDeliveryThresholdPaise WRITE setFreeDeliveryThresholdPaise NOTIFY deliveryFeeConfigChanged)
+    Q_PROPERTY(qint64 freeDeliveryThresholdPaise READ freeDeliveryThresholdPaise WRITE setFreeDeliveryThresholdPaise
+                   NOTIFY deliveryFeeConfigChanged)
 
 public:
-    enum class Environment {
-        Development,
-        Staging,
-        Production
-    };
+    enum class Environment { Development, Staging, Production };
     Q_ENUM(Environment)
 
     explicit AppConfig(QObject *parent = nullptr);
-    static AppConfig* instance();
+    static AppConfig *instance();
 
     QString environment() const;
     void setEnvironment(const QString &envName);

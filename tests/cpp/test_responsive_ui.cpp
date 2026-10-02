@@ -17,8 +17,7 @@
 #include <QtCore/QFileInfo>
 #include "../../core/thememanager.h"
 
-class MockAuthService : public QObject
-{
+class MockAuthService : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool isLoggedIn READ isLoggedIn WRITE setIsLoggedIn NOTIFY authChanged)
     Q_PROPERTY(QString userName READ userName WRITE setUserName NOTIFY authChanged)
@@ -26,16 +25,11 @@ class MockAuthService : public QObject
 
 public:
     explicit MockAuthService(QObject *parent = nullptr)
-        : QObject(parent)
-        , m_isLoggedIn(false)
-        , m_userName(QStringLiteral("Alex Test"))
-        , m_userRole(QStringLiteral("customer"))
-    {
-    }
+        : QObject(parent), m_isLoggedIn(false), m_userName(QStringLiteral("Alex Test")),
+          m_userRole(QStringLiteral("customer")) {}
 
     bool isLoggedIn() const { return m_isLoggedIn; }
-    void setIsLoggedIn(bool val)
-    {
+    void setIsLoggedIn(bool val) {
         if (m_isLoggedIn != val) {
             m_isLoggedIn = val;
             emit authChanged();
@@ -43,8 +37,7 @@ public:
     }
 
     QString userName() const { return m_userName; }
-    void setUserName(const QString &val)
-    {
+    void setUserName(const QString &val) {
         if (m_userName != val) {
             m_userName = val;
             emit authChanged();
@@ -52,8 +45,7 @@ public:
     }
 
     QString userRole() const { return m_userRole; }
-    void setUserRole(const QString &val)
-    {
+    void setUserRole(const QString &val) {
         if (m_userRole != val) {
             m_userRole = val;
             emit authChanged();
@@ -69,8 +61,7 @@ private:
     QString m_userRole;
 };
 
-class TestResponsiveUI : public QObject
-{
+class TestResponsiveUI : public QObject {
     Q_OBJECT
 
 private:
@@ -80,9 +71,9 @@ private:
 
     static constexpr double MAX_MISMATCH_TOLERANCE = 0.0005; // Strict <= 0.05% tolerance threshold
 
-    static double calculateMismatchRatio(const QImage &actual, const QImage &golden)
-    {
-        if (actual.size() != golden.size()) return 1.0;
+    static double calculateMismatchRatio(const QImage &actual, const QImage &golden) {
+        if (actual.size() != golden.size())
+            return 1.0;
         int diffPixels = 0;
         int totalPixels = actual.width() * actual.height();
         for (int y = 0; y < actual.height(); ++y) {
@@ -102,8 +93,7 @@ private:
     }
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         m_sourceDir = QStringLiteral(QUICKCART_SOURCE_DIR);
         m_screenshotDir = m_sourceDir + QStringLiteral("/build/screenshots");
         m_goldenDir = m_sourceDir + QStringLiteral("/tests/golden");
@@ -116,13 +106,13 @@ private slots:
         qDebug() << "Enforced screenshot difference tolerance: <= 0.05% (0.0005)";
     }
 
-    void testResponsiveBreakpoints()
-    {
+    void testResponsiveBreakpoints() {
         QQmlEngine engine;
         engine.addImportPath(m_sourceDir + QStringLiteral("/qml"));
         engine.addImportPath(m_sourceDir + QStringLiteral("/qml/responsive"));
 
-        QQmlComponent component(&engine, QUrl::fromLocalFile(m_sourceDir + QStringLiteral("/qml/responsive/Responsive.qml")));
+        QQmlComponent component(&engine,
+                                QUrl::fromLocalFile(m_sourceDir + QStringLiteral("/qml/responsive/Responsive.qml")));
         QVERIFY2(component.isReady(), qPrintable(component.errorString()));
 
         QObject *responsive = component.create();
@@ -197,13 +187,13 @@ private slots:
         delete responsive;
     }
 
-    void testSafeAreaAndKeyboard()
-    {
+    void testSafeAreaAndKeyboard() {
         QQmlEngine engine;
         engine.addImportPath(m_sourceDir + QStringLiteral("/qml"));
         engine.addImportPath(m_sourceDir + QStringLiteral("/qml/responsive"));
 
-        QQmlComponent component(&engine, QUrl::fromLocalFile(m_sourceDir + QStringLiteral("/qml/responsive/Responsive.qml")));
+        QQmlComponent component(&engine,
+                                QUrl::fromLocalFile(m_sourceDir + QStringLiteral("/qml/responsive/Responsive.qml")));
         QVERIFY(component.isReady());
 
         QObject *responsive = component.create();
@@ -234,8 +224,7 @@ private slots:
         delete responsive;
     }
 
-    void testDeliberateUiMismatchFails()
-    {
+    void testDeliberateUiMismatchFails() {
         // ── 1. Negative Control: 20x20 rect on 360x640 mobile screen ──────────
         // Mathematical proof:
         // A 20x20 rect occupies 400 pixels.
@@ -253,8 +242,9 @@ private slots:
 
         double rectMismatch = calculateMismatchRatio(rect20Perturbed, base);
         qDebug() << "Negative Control [20x20 Rect]:" << (rectMismatch * 100.0) << "% (tightened threshold: <= 0.05%)";
-        QVERIFY2(rectMismatch > MAX_MISMATCH_TOLERANCE,
-                 qPrintable(QString("20x20 rect (%1%) must exceed tightened 0.05% threshold").arg(rectMismatch * 100.0)));
+        QVERIFY2(
+            rectMismatch > MAX_MISMATCH_TOLERANCE,
+            qPrintable(QString("20x20 rect (%1%) must exceed tightened 0.05% threshold").arg(rectMismatch * 100.0)));
 
         // ── 2. Negative Control: Real Token Color Shift in App Layout ─────────
         // Simulate changing the HeaderBar surface token (#0f172a -> #10b981) across top 56px:
@@ -265,48 +255,39 @@ private slots:
         p2.end();
 
         double tokenMismatch = calculateMismatchRatio(tokenPerturbed, base);
-        qDebug() << "Negative Control [HeaderBar Token Shift]:" << (tokenMismatch * 100.0) << "% (tightened threshold: <= 0.05%)";
+        qDebug() << "Negative Control [HeaderBar Token Shift]:" << (tokenMismatch * 100.0)
+                 << "% (tightened threshold: <= 0.05%)";
         QVERIFY2(tokenMismatch > MAX_MISMATCH_TOLERANCE,
-                 qPrintable(QString("HeaderBar token shift (%1%) must exceed tightened 0.05% threshold").arg(tokenMismatch * 100.0)));
+                 qPrintable(QString("HeaderBar token shift (%1%) must exceed tightened 0.05% threshold")
+                                .arg(tokenMismatch * 100.0)));
         QVERIFY2(tokenMismatch >= 0.087, "HeaderBar 56px change on 360w screen must measure >= 8.7%");
     }
 
-    void testOffscreenScreenshotCaptures()
-    {
+    void testOffscreenScreenshotCaptures() {
         MockAuthService authService;
         authService.setIsLoggedIn(true);
 
         ThemeManager *tm = ThemeManager::instance();
 
-        struct ViewTarget
-        {
+        struct ViewTarget {
             const char *viewName;
             const char *relativeQmlPath;
         };
 
         const ViewTarget views[] = {
-            {"scaffold", "/qml/components/AppScaffold.qml"},
-            {"auth_view", "/qml/views/AuthView.qml"},
-            {"customer_view", "/qml/views/CustomerView.qml"},
-            {"shopkeeper_view", "/qml/views/ShopkeeperView.qml"},
-            {"delivery_view", "/qml/views/DeliveryView.qml"},
-            {"admin_view", "/qml/views/AdminView.qml"}
-        };
+            {"scaffold", "/qml/components/AppScaffold.qml"},  {"auth_view", "/qml/views/AuthView.qml"},
+            {"customer_view", "/qml/views/CustomerView.qml"}, {"shopkeeper_view", "/qml/views/ShopkeeperView.qml"},
+            {"delivery_view", "/qml/views/DeliveryView.qml"}, {"admin_view", "/qml/views/AdminView.qml"}};
 
-        struct FormFactor
-        {
+        struct FormFactor {
             const char *name;
             int width;
             int height;
         };
 
-        const FormFactor factors[] = {
-            {"360", 360, 640},
-            {"768", 768, 1024},
-            {"1440", 1440, 900}
-        };
+        const FormFactor factors[] = {{"360", 360, 640}, {"768", 768, 1024}, {"1440", 1440, 900}};
 
-        const QStringList modes = { QStringLiteral("dark"), QStringLiteral("light") };
+        const QStringList modes = {QStringLiteral("dark"), QStringLiteral("light")};
 
         for (const auto &target : views) {
             QQuickView view;
@@ -353,13 +334,15 @@ private slots:
                         qDebug() << "[Golden Seeded]" << fullName << "->" << goldenPath;
                     } else {
                         QImage goldenImage(goldenPath);
-                        QVERIFY2(!goldenImage.isNull(), qPrintable(QString("Failed to read golden image: %1").arg(goldenPath)));
+                        QVERIFY2(!goldenImage.isNull(),
+                                 qPrintable(QString("Failed to read golden image: %1").arg(goldenPath)));
                         double mismatch = calculateMismatchRatio(frame, goldenImage);
                         qDebug() << "[Screenshot Check]" << fullName << "Mismatch:" << (mismatch * 100.0)
                                  << "% (tolerance: <= 0.5%)";
                         QVERIFY2(mismatch <= MAX_MISMATCH_TOLERANCE,
                                  qPrintable(QString("Screenshot difference %1% exceeds tolerance of 0.5% for %2")
-                                     .arg(mismatch * 100.0, 0, 'f', 3).arg(fullName)));
+                                                .arg(mismatch * 100.0, 0, 'f', 3)
+                                                .arg(fullName)));
                     }
                 }
             }
@@ -367,8 +350,7 @@ private slots:
     }
 };
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     qputenv("QT_QPA_PLATFORM", QByteArray("offscreen"));
     qputenv("QT_QUICK_CONTROLS_STYLE", QByteArray("Basic"));
     QGuiApplication app(argc, argv);

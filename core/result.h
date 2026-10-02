@@ -61,9 +61,7 @@ struct AppError {
     /**
      * @brief Factory for an empty, non-error sentinel.
      */
-    static AppError none() {
-        return AppError{ErrorCategory::None, 0, QString(), QString(), QString()};
-    }
+    static AppError none() { return AppError{ErrorCategory::None, 0, QString(), QString(), QString()}; }
 
     /**
      * @brief Factory for network-related errors.
@@ -132,22 +130,18 @@ struct AppError {
 /**
  * @brief Type-safe Result container representing either success with value T or failure with AppError.
  */
-template <typename T>
+template<typename T>
 class Result {
 public:
     /**
      * @brief Construct a successful result holding the given value.
      */
-    static Result<T> ok(const T &val) {
-        return Result<T>(val);
-    }
+    static Result<T> ok(const T &val) { return Result<T>(val); }
 
     /**
      * @brief Construct a failed result with structured AppError.
      */
-    static Result<T> error(const AppError &err) {
-        return Result<T>(err);
-    }
+    static Result<T> error(const AppError &err) { return Result<T>(err); }
 
     /**
      * @brief Construct a failed result with message and optional category.
@@ -162,44 +156,32 @@ public:
     /**
      * @brief Check whether the operation succeeded.
      */
-    bool isSuccess() const {
-        return std::holds_alternative<T>(m_data);
-    }
+    bool isSuccess() const { return std::holds_alternative<T>(m_data); }
 
     /**
      * @brief Check whether the operation produced an error.
      */
-    bool isError() const {
-        return !isSuccess();
-    }
+    bool isError() const { return !isSuccess(); }
 
     /**
      * @brief Retrieve const reference to the enclosed value. Undefined if isError().
      */
-    const T& value() const {
-        return std::get<T>(m_data);
-    }
+    const T &value() const { return std::get<T>(m_data); }
 
     /**
      * @brief Retrieve mutable reference to the enclosed value. Undefined if isError().
      */
-    T& value() {
-        return std::get<T>(m_data);
-    }
+    T &value() { return std::get<T>(m_data); }
 
     /**
      * @brief Retrieve the value or a fallback default if in an error state.
      */
-    T valueOr(const T &defaultValue) const {
-        return isSuccess() ? std::get<T>(m_data) : defaultValue;
-    }
+    T valueOr(const T &defaultValue) const { return isSuccess() ? std::get<T>(m_data) : defaultValue; }
 
     /**
      * @brief Retrieve const reference to the enclosed error. Undefined if isSuccess().
      */
-    const AppError& error() const {
-        return std::get<AppError>(m_data);
-    }
+    const AppError &error() const { return std::get<AppError>(m_data); }
 
 private:
     explicit Result(const T &val) : m_data(val) {}
@@ -211,22 +193,18 @@ private:
 /**
  * @brief Specialization of Result for operations without a payload.
  */
-template <>
+template<>
 class Result<void> {
 public:
     /**
      * @brief Construct a successful void result.
      */
-    static Result<void> ok() {
-        return Result<void>();
-    }
+    static Result<void> ok() { return Result<void>(); }
 
     /**
      * @brief Construct a failed void result with AppError.
      */
-    static Result<void> error(const AppError &err) {
-        return Result<void>(err);
-    }
+    static Result<void> error(const AppError &err) { return Result<void>(err); }
 
     /**
      * @brief Construct a failed void result with message and optional category.
@@ -251,7 +229,7 @@ public:
     /**
      * @brief Retrieve the AppError.
      */
-    const AppError& error() const { return m_error; }
+    const AppError &error() const { return m_error; }
 
 private:
     Result() : m_error(AppError::none()) {}

@@ -7,13 +7,11 @@
 #include <QtTest/QtTest>
 #include "../../core/validators.h"
 
-class TestValidators : public QObject
-{
+class TestValidators : public QObject {
     Q_OBJECT
 
 private slots:
-    void testEmailValidation()
-    {
+    void testEmailValidation() {
         QVERIFY(Validators::validateEmail(QStringLiteral("customer@quickcart.com")).isSuccess());
         QVERIFY(Validators::validateEmail(QStringLiteral("rider.fast+1@delivery.co.in")).isSuccess());
 
@@ -24,8 +22,7 @@ private slots:
         QVERIFY(Validators::validateEmail(QStringLiteral("@emptyusername.com")).isError());
     }
 
-    void testPhoneValidation()
-    {
+    void testPhoneValidation() {
         QVERIFY(Validators::validatePhone(QStringLiteral("+919876543210")).isSuccess());
         QVERIFY(Validators::validatePhone(QStringLiteral("9876543210")).isSuccess());
         QVERIFY(Validators::validatePhone(QStringLiteral("+1-800-555-0199")).isSuccess());
@@ -36,8 +33,7 @@ private slots:
         QVERIFY(Validators::validatePhone(QStringLiteral("abc-def-ghij")).isError());
     }
 
-    void testPasswordValidation()
-    {
+    void testPasswordValidation() {
         QVERIFY(Validators::validatePassword(QStringLiteral("SecurePass123")).isSuccess());
         QVERIFY(Validators::validatePassword(QStringLiteral("QuickCart@2026")).isSuccess());
 
@@ -51,8 +47,7 @@ private slots:
         QVERIFY(Validators::validatePassword(QStringLiteral("PASSWORD123")).isError());
     }
 
-    void testPriceValidation()
-    {
+    void testPriceValidation() {
         QVERIFY(Validators::validatePrice(29.99).isSuccess());
         QVERIFY(Validators::validatePrice(0.01).isSuccess());
         QVERIFY(Validators::validatePrice(499999.0).isSuccess());
@@ -71,8 +66,7 @@ private slots:
         QVERIFY(Validators::validatePricePaise(50000001).isError());
     }
 
-    void testQuantityValidation()
-    {
+    void testQuantityValidation() {
         // Valid quantity within stock
         QVERIFY(Validators::validateQuantity(1, 10).isSuccess());
         QVERIFY(Validators::validateQuantity(5, 5).isSuccess());
@@ -90,8 +84,7 @@ private slots:
         QCOMPARE(excessRes.error().category, ErrorCategory::Conflict);
     }
 
-    void testCoordinatesValidation()
-    {
+    void testCoordinatesValidation() {
         QVERIFY(Validators::validateCoordinates(12.9716, 77.5946).isSuccess()); // Bangalore
         QVERIFY(Validators::validateCoordinates(-90.0, 0.0).isSuccess());
         QVERIFY(Validators::validateCoordinates(0.0, 180.0).isSuccess());
@@ -101,8 +94,7 @@ private slots:
         QVERIFY(Validators::validateCoordinates(-95.0, -200.0).isError());
     }
 
-    void testHaversineDistanceAndRadiusBoundary()
-    {
+    void testHaversineDistanceAndRadiusBoundary() {
         // Center: 12.9715987, 77.5945627 (MG Road, Bangalore)
         double centerLat = 12.9715987;
         double centerLng = 77.5945627;
@@ -127,8 +119,7 @@ private slots:
         QCOMPARE(farCheck.error().category, ErrorCategory::Validation);
     }
 
-    void testOtpValidation()
-    {
+    void testOtpValidation() {
         QVERIFY(Validators::validateOtp(QStringLiteral("1234"), 4).isSuccess());
         QVERIFY(Validators::validateOtp(QStringLiteral("839210"), 6).isSuccess());
 
@@ -137,8 +128,7 @@ private slots:
         QVERIFY(Validators::validateOtp(QStringLiteral(""), 4).isError());
     }
 
-    void testOpeningHoursValidation()
-    {
+    void testOpeningHoursValidation() {
         // Open 9:00 AM (540m) to 10:00 PM (1320m)
         QVERIFY(Validators::validateOpeningHours(540, 1320).isSuccess());
 

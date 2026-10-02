@@ -1,6 +1,7 @@
 /**
  * @file test_customer_cart_flow.cpp
- * @brief Integration tests for Customer Flow (4b): shop discovery 3km boundary, single-store rule, stock limits, checkout.
+ * @brief Integration tests for Customer Flow (4b): shop discovery 3km boundary, single-store rule, stock limits,
+ * checkout.
  * @layer Tests / Integration (C++ / Qt Test)
  */
 
@@ -11,33 +12,26 @@
 #include "../../core/appconfig.h"
 #include "../tools/mockapiserver.h"
 
-class TestCustomerCartFlow : public QObject
-{
+class TestCustomerCartFlow : public QObject {
     Q_OBJECT
 
 private:
     MockApiServer m_server;
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         QVERIFY(m_server.start());
         NetworkManager::instance()->setBaseUrl(m_server.url());
     }
 
-    void cleanupTestCase()
-    {
-        m_server.stop();
-    }
+    void cleanupTestCase() { m_server.stop(); }
 
-    void init()
-    {
+    void init() {
         CartManager::instance()->resetForTesting();
         m_server.resetData();
     }
 
-    void testShopDiscovery3KmBoundary()
-    {
+    void testShopDiscovery3KmBoundary() {
         ShopModel shops;
         QSignalSpy loadSpy(&shops, &ShopModel::shopsLoaded);
 
@@ -54,8 +48,7 @@ private slots:
         QVERIFY(s1.value("name").toString() == "Corner Pharmacy" || s2.value("name").toString() == "Corner Pharmacy");
     }
 
-    void testCategoryFilter()
-    {
+    void testCategoryFilter() {
         ShopModel shops;
         QSignalSpy loadSpy(&shops, &ShopModel::shopsLoaded);
 
@@ -66,8 +59,7 @@ private slots:
         QCOMPARE(shops.getShopAt(0).value("name").toString(), QStringLiteral("Corner Pharmacy"));
     }
 
-    void testSingleStoreRuleEnforcement()
-    {
+    void testSingleStoreRuleEnforcement() {
         CartManager *cart = CartManager::instance();
         QSignalSpy mismatchSpy(cart, &CartManager::promptStoreMismatch);
 
@@ -94,8 +86,7 @@ private slots:
         QCOMPARE(cart->itemCount(), 1); // Cart unchanged
     }
 
-    void testStockLimitsEnforcement()
-    {
+    void testStockLimitsEnforcement() {
         CartManager *cart = CartManager::instance();
 
         QVariantMap prod;
@@ -115,8 +106,7 @@ private slots:
         QVERIFY(!cart->errorMessage().isEmpty());
     }
 
-    void testDeliveryFeeCalculationAndOrderPlacement()
-    {
+    void testDeliveryFeeCalculationAndOrderPlacement() {
         CartManager *cart = CartManager::instance();
         QCOMPARE(cart->deliveryFee(), 0.0);
         QCOMPARE(cart->total(), 0.0);
@@ -148,8 +138,7 @@ private slots:
         QCOMPARE(cart->total(), 0.0);
     }
 
-    void testCartItemModificationsAndClear()
-    {
+    void testCartItemModificationsAndClear() {
         CartManager *cart = CartManager::instance();
         cart->clearCart();
         QCOMPARE(cart->itemCount(), 0);
@@ -193,8 +182,7 @@ private slots:
         QCOMPARE(cart->itemCount(), 0);
     }
 
-    void testServerConfigAndPaiseRecomputation()
-    {
+    void testServerConfigAndPaiseRecomputation() {
         // 1. Fetch server delivery fee and threshold config
         AppConfig *config = AppConfig::instance();
         QSignalSpy configSpy(config, &AppConfig::serverConfigFetched);

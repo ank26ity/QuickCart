@@ -22,17 +22,11 @@
 #include <QtCore/QString>
 #include <QtCore/QByteArray>
 
-class SecureStorage : public QObject
-{
+class SecureStorage : public QObject {
     Q_OBJECT
 
 public:
-    enum class Backend {
-        PlatformDefault,
-        WindowsCredManager,
-        AndroidKeystore,
-        EncryptedVault
-    };
+    enum class Backend { PlatformDefault, WindowsCredManager, AndroidKeystore, EncryptedVault };
     Q_ENUM(Backend)
 
     explicit SecureStorage(QObject *parent = nullptr);
@@ -40,7 +34,7 @@ public:
     /**
      * @brief Singleton accessor with lazy auto-instantiation.
      */
-    static SecureStorage* instance();
+    static SecureStorage *instance();
 
     /**
      * @brief Persist an encrypted secret key-value pair.
@@ -94,7 +88,8 @@ public:
     Backend activeBackend() const;
 
     // Cryptographic Primitives (AES-256-GCM, PBKDF2-SHA256, CSPRNG)
-    static QByteArray encryptAesGcm(const QByteArray &plain, const QByteArray &key, const QByteArray &iv = QByteArray());
+    static QByteArray encryptAesGcm(const QByteArray &plain, const QByteArray &key,
+                                    const QByteArray &iv = QByteArray());
     static QByteArray decryptAesGcm(const QByteArray &cipherWithTagAndIv, const QByteArray &key);
     static QByteArray deriveKeyPbkdf2(const QString &password, const QByteArray &salt, int iterations = 100000);
     static QByteArray generateRandomKey(int length = 32);

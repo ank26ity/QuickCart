@@ -18,9 +18,7 @@
 
 static AuthService *s_authServiceInstance = nullptr;
 
-AuthService::AuthService(QObject *parent)
-    : QObject(parent)
-{
+AuthService::AuthService(QObject *parent) : QObject(parent) {
     s_authServiceInstance = this;
 
     if (NetworkManager::instance()) {
@@ -34,82 +32,67 @@ AuthService::AuthService(QObject *parent)
     checkSession();
 }
 
-AuthService* AuthService::instance()
-{
+AuthService *AuthService::instance() {
     if (!s_authServiceInstance) {
         new AuthService(qApp);
     }
     return s_authServiceInstance;
 }
 
-bool AuthService::isLoggedIn() const
-{
+bool AuthService::isLoggedIn() const {
     return m_isLoggedIn;
 }
 
-QString AuthService::userId() const
-{
+QString AuthService::userId() const {
     return m_userObj.value(QStringLiteral("_id")).toString(m_userObj.value(QStringLiteral("id")).toString());
 }
 
-QString AuthService::userName() const
-{
+QString AuthService::userName() const {
     return m_userObj.value(QStringLiteral("name")).toString();
 }
 
-QString AuthService::userEmail() const
-{
+QString AuthService::userEmail() const {
     return m_userObj.value(QStringLiteral("email")).toString();
 }
 
-QString AuthService::userPhone() const
-{
+QString AuthService::userPhone() const {
     return m_userObj.value(QStringLiteral("phone")).toString();
 }
 
-QString AuthService::userRole() const
-{
+QString AuthService::userRole() const {
     return m_userObj.value(QStringLiteral("role")).toString(QStringLiteral("customer")).toLower();
 }
 
-QString AuthService::userShopId() const
-{
+QString AuthService::userShopId() const {
     return m_userObj.value(QStringLiteral("shopId")).toString();
 }
 
-QString AuthService::complianceStatus() const
-{
+QString AuthService::complianceStatus() const {
     return m_complianceStatus;
 }
 
-QVariantMap AuthService::currentUserData() const
-{
+QVariantMap AuthService::currentUserData() const {
     return m_userObj.toVariantMap();
 }
 
-bool AuthService::isLoading() const
-{
+bool AuthService::isLoading() const {
     return m_isLoading;
 }
 
-QString AuthService::errorMessage() const
-{
+QString AuthService::errorMessage() const {
     return m_errorMessage;
 }
 
-bool AuthService::isOtpSent() const
-{
+bool AuthService::isOtpSent() const {
     return m_isOtpSent;
 }
 
-QString AuthService::getDeviceFingerprint() const
-{
+QString AuthService::getDeviceFingerprint() const {
     QString raw = QSysInfo::machineUniqueId() + QStringLiteral("_") + QSysInfo::prettyProductName();
     return QCryptographicHash::hash(raw.toUtf8(), QCryptographicHash::Sha256).toHex();
 }
 
-void AuthService::login(const QString &emailOrPhone, const QString &password)
-{
+void AuthService::login(const QString &emailOrPhone, const QString &password) {
     QString trimmedInput = emailOrPhone.trimmed();
 
     // Client-side pre-flight validation
@@ -147,32 +130,36 @@ void AuthService::login(const QString &emailOrPhone, const QString &password)
 
     qCDebug(qcAuth) << "Initiating login request for user:" << StructuredLogger::maskEmail(trimmedInput);
 
-    NetworkManager::instance()->post(QStringLiteral("/api/auth/login-request"), body, [this](bool success, const QJsonDocument &doc, const QString &err) {
-        m_isLoading = false;
-        emit loadingChanged();
+    NetworkManager::instance()->post(
+        QStringLiteral("/api/auth/login-request"), body,
+        [this](bool success, const QJsonDocument &doc, const QString &err) {
+            m_isLoading = false;
+            emit loadingChanged();
 
-        if (!success) {
-            m_errorMessage = err.isEmpty() ? QStringLiteral("Invalid login credentials") : err;
-            qCWarning(qcAuth) << "Login failed:" << m_errorMessage;
-            emit errorMessageChanged();
-            return;
-        }
+            if (!success) {
+                m_errorMessage = err.isEmpty() ? QStringLiteral("Invalid login credentials") : err;
+                qCWarning(qcAuth) << "Login failed:" << m_errorMessage;
+                emit errorMessageChanged();
+                return;
+            }
 
-        if (doc.isObject()) {
-            QJsonObject rootObj = doc.object();
-            QJsonObject userObj = rootObj.contains(QStringLiteral("user")) ? rootObj.value(QStringLiteral("user")).toObject() : rootObj;
-            QString access = rootObj.value(QStringLiteral("accessToken")).toString(rootObj.value(QStringLiteral("token")).toString());
-            QString refresh = rootObj.value(QStringLiteral("refreshToken")).toString();
+            if (doc.isObject()) {
+                QJsonObject rootObj = doc.object();
+                QJsonObject userObj = rootObj.contains(QStringLiteral("user"))
+                                          ? rootObj.value(QStringLiteral("user")).toObject()
+                                          : rootObj;
+                QString access = rootObj.value(QStringLiteral("accessToken"))
+                                     .toString(rootObj.value(QStringLiteral("token")).toString());
+                QString refresh = rootObj.value(QStringLiteral("refreshToken")).toString();
 
-            setUser(userObj, access, refresh);
-            qCDebug(qcAuth) << "User login successful. Role:" << userRole();
-            emit loginSuccess();
-        }
-    });
+                setUser(userObj, access, refresh);
+                qCDebug(qcAuth) << "User login successful. Role:" << userRole();
+                emit loginSuccess();
+            }
+        });
 }
 
-void AuthService::signup(const QVariantMap &userData)
-{
+void AuthService::signup(const QVariantMap &userData) {
     QString email = userData.value(QStringLiteral("email")).toString().trimmed();
     QString phone = userData.value(QStringLiteral("phone")).toString().trimmed();
     QString password = userData.value(QStringLiteral("password")).toString();
@@ -209,31 +196,35 @@ void AuthService::signup(const QVariantMap &userData)
     QJsonObject body = QJsonObject::fromVariantMap(userData);
     body[QStringLiteral("deviceId")] = getDeviceFingerprint();
 
-    NetworkManager::instance()->post(QStringLiteral("/api/auth/signup-request"), body, [this](bool success, const QJsonDocument &doc, const QString &err) {
-        m_isLoading = false;
-        emit loadingChanged();
+    NetworkManager::instance()->post(
+        QStringLiteral("/api/auth/signup-request"), body,
+        [this](bool success, const QJsonDocument &doc, const QString &err) {
+            m_isLoading = false;
+            emit loadingChanged();
 
-        if (!success) {
-            m_errorMessage = err.isEmpty() ? QStringLiteral("Registration failed") : err;
-            qCWarning(qcAuth) << "Signup failed:" << m_errorMessage;
-            emit errorMessageChanged();
-            return;
-        }
+            if (!success) {
+                m_errorMessage = err.isEmpty() ? QStringLiteral("Registration failed") : err;
+                qCWarning(qcAuth) << "Signup failed:" << m_errorMessage;
+                emit errorMessageChanged();
+                return;
+            }
 
-        if (doc.isObject()) {
-            QJsonObject rootObj = doc.object();
-            QJsonObject userObj = rootObj.contains(QStringLiteral("user")) ? rootObj.value(QStringLiteral("user")).toObject() : rootObj;
-            QString access = rootObj.value(QStringLiteral("accessToken")).toString(rootObj.value(QStringLiteral("token")).toString());
-            QString refresh = rootObj.value(QStringLiteral("refreshToken")).toString();
+            if (doc.isObject()) {
+                QJsonObject rootObj = doc.object();
+                QJsonObject userObj = rootObj.contains(QStringLiteral("user"))
+                                          ? rootObj.value(QStringLiteral("user")).toObject()
+                                          : rootObj;
+                QString access = rootObj.value(QStringLiteral("accessToken"))
+                                     .toString(rootObj.value(QStringLiteral("token")).toString());
+                QString refresh = rootObj.value(QStringLiteral("refreshToken")).toString();
 
-            setUser(userObj, access, refresh);
-            emit signupSuccess();
-        }
-    });
+                setUser(userObj, access, refresh);
+                emit signupSuccess();
+            }
+        });
 }
 
-void AuthService::submitCourierCompliance(const QString &licenseNumber, const QString &vehicleNumber)
-{
+void AuthService::submitCourierCompliance(const QString &licenseNumber, const QString &vehicleNumber) {
     if (licenseNumber.trimmed().isEmpty() || vehicleNumber.trimmed().isEmpty()) {
         m_errorMessage = QStringLiteral("Driver license and vehicle registration numbers are required.");
         emit errorMessageChanged();
@@ -250,26 +241,27 @@ void AuthService::submitCourierCompliance(const QString &licenseNumber, const QS
     body[QStringLiteral("vehicleNumber")] = vehicleNumber.trimmed();
     body[QStringLiteral("courierId")] = userId();
 
-    NetworkManager::instance()->post(QStringLiteral("/api/auth/compliance"), body, [this](bool success, const QJsonDocument &doc, const QString &err) {
-        Q_UNUSED(doc);
-        m_isLoading = false;
-        emit loadingChanged();
+    NetworkManager::instance()->post(
+        QStringLiteral("/api/auth/compliance"), body,
+        [this](bool success, const QJsonDocument &doc, const QString &err) {
+            Q_UNUSED(doc);
+            m_isLoading = false;
+            emit loadingChanged();
 
-        if (!success) {
-            m_errorMessage = err.isEmpty() ? QStringLiteral("Compliance document upload failed.") : err;
-            emit errorMessageChanged();
-            return;
-        }
+            if (!success) {
+                m_errorMessage = err.isEmpty() ? QStringLiteral("Compliance document upload failed.") : err;
+                emit errorMessageChanged();
+                return;
+            }
 
-        m_complianceStatus = QStringLiteral("pending");
-        m_userObj[QStringLiteral("complianceStatus")] = m_complianceStatus;
-        emit complianceStatusChanged();
-        emit complianceSubmitted();
-    });
+            m_complianceStatus = QStringLiteral("pending");
+            m_userObj[QStringLiteral("complianceStatus")] = m_complianceStatus;
+            emit complianceStatusChanged();
+            emit complianceSubmitted();
+        });
 }
 
-void AuthService::requestOtp(const QString &phone)
-{
+void AuthService::requestOtp(const QString &phone) {
     auto phoneRes = Validators::validatePhone(phone);
     if (phoneRes.isError()) {
         m_errorMessage = phoneRes.error().message;
@@ -286,24 +278,24 @@ void AuthService::requestOtp(const QString &phone)
     body[QStringLiteral("phone")] = phone.trimmed();
     body[QStringLiteral("deviceId")] = getDeviceFingerprint();
 
-    NetworkManager::instance()->post(QStringLiteral("/api/auth/otp/send"), body, [this](bool success, const QJsonDocument &doc, const QString &err) {
-        Q_UNUSED(doc);
-        m_isLoading = false;
-        emit loadingChanged();
+    NetworkManager::instance()->post(
+        QStringLiteral("/api/auth/otp/send"), body, [this](bool success, const QJsonDocument &doc, const QString &err) {
+            Q_UNUSED(doc);
+            m_isLoading = false;
+            emit loadingChanged();
 
-        if (!success) {
-            m_errorMessage = err.isEmpty() ? QStringLiteral("Failed to send verification OTP") : err;
-            emit errorMessageChanged();
-            return;
-        }
+            if (!success) {
+                m_errorMessage = err.isEmpty() ? QStringLiteral("Failed to send verification OTP") : err;
+                emit errorMessageChanged();
+                return;
+            }
 
-        m_isOtpSent = true;
-        emit otpStateChanged();
-    });
+            m_isOtpSent = true;
+            emit otpStateChanged();
+        });
 }
 
-void AuthService::verifyOtp(const QString &phone, const QString &otp)
-{
+void AuthService::verifyOtp(const QString &phone, const QString &otp) {
     auto otpRes = Validators::validateOtp(otp, 6);
     if (otpRes.isError() && Validators::validateOtp(otp, 4).isError()) {
         m_errorMessage = QStringLiteral("OTP must be 4 or 6 digits.");
@@ -321,30 +313,33 @@ void AuthService::verifyOtp(const QString &phone, const QString &otp)
     body[QStringLiteral("otp")] = otp.trimmed();
     body[QStringLiteral("deviceId")] = getDeviceFingerprint();
 
-    NetworkManager::instance()->post(QStringLiteral("/api/auth/otp/verify"), body, [this](bool success, const QJsonDocument &doc, const QString &err) {
-        m_isLoading = false;
-        emit loadingChanged();
+    NetworkManager::instance()->post(
+        QStringLiteral("/api/auth/otp/verify"), body,
+        [this](bool success, const QJsonDocument &doc, const QString &err) {
+            m_isLoading = false;
+            emit loadingChanged();
 
-        if (!success) {
-            m_errorMessage = err.isEmpty() ? QStringLiteral("Invalid verification code") : err;
-            emit errorMessageChanged();
-            return;
-        }
+            if (!success) {
+                m_errorMessage = err.isEmpty() ? QStringLiteral("Invalid verification code") : err;
+                emit errorMessageChanged();
+                return;
+            }
 
-        if (doc.isObject()) {
-            QJsonObject rootObj = doc.object();
-            QJsonObject userObj = rootObj.contains(QStringLiteral("user")) ? rootObj.value(QStringLiteral("user")).toObject() : rootObj;
-            QString access = rootObj.value(QStringLiteral("accessToken")).toString();
-            QString refresh = rootObj.value(QStringLiteral("refreshToken")).toString();
+            if (doc.isObject()) {
+                QJsonObject rootObj = doc.object();
+                QJsonObject userObj = rootObj.contains(QStringLiteral("user"))
+                                          ? rootObj.value(QStringLiteral("user")).toObject()
+                                          : rootObj;
+                QString access = rootObj.value(QStringLiteral("accessToken")).toString();
+                QString refresh = rootObj.value(QStringLiteral("refreshToken")).toString();
 
-            setUser(userObj, access, refresh);
-            emit loginSuccess();
-        }
-    });
+                setUser(userObj, access, refresh);
+                emit loginSuccess();
+            }
+        });
 }
 
-void AuthService::logout()
-{
+void AuthService::logout() {
     if (SecureStorage::instance()) {
         SecureStorage::instance()->clearAllSecrets();
     }
@@ -363,9 +358,9 @@ void AuthService::logout()
     emit errorMessageChanged();
 }
 
-void AuthService::checkSession()
-{
-    if (!SecureStorage::instance()) return;
+void AuthService::checkSession() {
+    if (!SecureStorage::instance())
+        return;
 
     QString sessionJson = SecureStorage::instance()->getSecret(QStringLiteral("session_user_data"));
     if (!sessionJson.isEmpty()) {
@@ -373,7 +368,8 @@ void AuthService::checkSession()
         if (doc.isObject()) {
             m_userObj = doc.object();
             m_isLoggedIn = true;
-            m_complianceStatus = m_userObj.value(QStringLiteral("complianceStatus")).toString(QStringLiteral("not_submitted"));
+            m_complianceStatus =
+                m_userObj.value(QStringLiteral("complianceStatus")).toString(QStringLiteral("not_submitted"));
             syncWithRBAC();
             emit authStateChanged();
             emit userProfileChanged();
@@ -382,8 +378,7 @@ void AuthService::checkSession()
     }
 }
 
-void AuthService::setUser(const QJsonObject &userObj, const QString &accessToken, const QString &refreshToken)
-{
+void AuthService::setUser(const QJsonObject &userObj, const QString &accessToken, const QString &refreshToken) {
     m_userObj = userObj;
     m_isLoggedIn = true;
     m_complianceStatus = m_userObj.value(QStringLiteral("complianceStatus")).toString(QStringLiteral("not_submitted"));
@@ -393,7 +388,8 @@ void AuthService::setUser(const QJsonObject &userObj, const QString &accessToken
             SecureStorage::instance()->saveTokens(accessToken, refreshToken);
         }
         QJsonDocument doc(m_userObj);
-        SecureStorage::instance()->saveSecret(QStringLiteral("session_user_data"), QString::fromUtf8(doc.toJson(QJsonDocument::Compact)));
+        SecureStorage::instance()->saveSecret(QStringLiteral("session_user_data"),
+                                              QString::fromUtf8(doc.toJson(QJsonDocument::Compact)));
     }
 
     syncWithRBAC();
@@ -403,8 +399,7 @@ void AuthService::setUser(const QJsonObject &userObj, const QString &accessToken
     emit complianceStatusChanged();
 }
 
-void AuthService::syncWithRBAC()
-{
+void AuthService::syncWithRBAC() {
     if (PermissionManager::instance()) {
         if (m_isLoggedIn) {
             PermissionManager::instance()->setCurrentRole(userRole());
@@ -418,7 +413,6 @@ void AuthService::syncWithRBAC()
     }
 }
 
-void AuthService::resetForTesting()
-{
+void AuthService::resetForTesting() {
     logout();
 }

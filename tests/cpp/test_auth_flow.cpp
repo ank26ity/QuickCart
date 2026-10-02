@@ -11,34 +11,27 @@
 #include "../../security/permissionmanager.h"
 #include "../tools/mockapiserver.h"
 
-class TestAuthFlow : public QObject
-{
+class TestAuthFlow : public QObject {
     Q_OBJECT
 
 private:
     MockApiServer m_server;
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         QVERIFY(m_server.start());
         NetworkManager::instance()->setBaseUrl(m_server.url());
     }
 
-    void cleanupTestCase()
-    {
-        m_server.stop();
-    }
+    void cleanupTestCase() { m_server.stop(); }
 
-    void init()
-    {
+    void init() {
         AuthService::instance()->resetForTesting();
         PermissionManager::instance()->resetForTesting();
         m_server.resetData();
     }
 
-    void testInvalidInputErrors()
-    {
+    void testInvalidInputErrors() {
         AuthService *auth = AuthService::instance();
 
         // Invalid email
@@ -61,8 +54,7 @@ private slots:
         QVERIFY(!auth->errorMessage().isEmpty());
     }
 
-    void testSuccessfulLoginAndSessionRestore()
-    {
+    void testSuccessfulLoginAndSessionRestore() {
         AuthService *auth = AuthService::instance();
         QSignalSpy loginSpy(auth, &AuthService::loginSuccess);
         QSignalSpy authSpy(auth, &AuthService::authStateChanged);
@@ -89,7 +81,8 @@ private slots:
         savedUser["name"] = "Alice Customer";
         savedUser["role"] = "customer";
         savedUser["email"] = "alice@quickcart.com";
-        SecureStorage::instance()->saveSecret("session_user_data", QString::fromUtf8(QJsonDocument(savedUser).toJson(QJsonDocument::Compact)));
+        SecureStorage::instance()->saveSecret(
+            "session_user_data", QString::fromUtf8(QJsonDocument(savedUser).toJson(QJsonDocument::Compact)));
 
         auth->checkSession();
         QVERIFY(auth->isLoggedIn());
@@ -97,8 +90,7 @@ private slots:
         QCOMPARE(auth->userRole(), QStringLiteral("customer"));
     }
 
-    void testLogoutClearsSessionAndRBAC()
-    {
+    void testLogoutClearsSessionAndRBAC() {
         AuthService *auth = AuthService::instance();
         QSignalSpy loginSpy(auth, &AuthService::loginSuccess);
 
@@ -113,8 +105,7 @@ private slots:
         QVERIFY(SecureStorage::instance()->getSecret("session_user_data").isEmpty());
     }
 
-    void testCourierComplianceSubmission()
-    {
+    void testCourierComplianceSubmission() {
         AuthService *auth = AuthService::instance();
         QSignalSpy loginSpy(auth, &AuthService::loginSuccess);
 
@@ -130,8 +121,7 @@ private slots:
         QCOMPARE(auth->complianceStatus(), QStringLiteral("pending"));
     }
 
-    void testOtpRequestAndVerify()
-    {
+    void testOtpRequestAndVerify() {
         AuthService *auth = AuthService::instance();
 
         // Invalid phone format

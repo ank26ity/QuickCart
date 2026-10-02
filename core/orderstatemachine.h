@@ -41,14 +41,7 @@ public:
         Rejected
     };
 
-    enum class OrderActor {
-        Unknown,
-        Customer,
-        Merchant,
-        Courier,
-        Admin,
-        System
-    };
+    enum class OrderActor { Unknown, Customer, Merchant, Courier, Admin, System };
 
     /**
      * @brief Convert OrderStatus to lowercase API-standard string.

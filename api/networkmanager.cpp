@@ -12,59 +12,48 @@
 static NetworkManager *s_networkManagerInstance = nullptr;
 
 NetworkManager::NetworkManager(QObject *parent)
-    : QObject(parent),
-      m_baseUrl(QStringLiteral("http://localhost:5001")),
-      m_circuitBreaker(5, 15000, this)
-{
+    : QObject(parent), m_baseUrl(QStringLiteral("http://localhost:5001")), m_circuitBreaker(5, 15000, this) {
     s_networkManagerInstance = this;
     if (AppConfig::instance()) {
         m_baseUrl = AppConfig::instance()->apiBaseUrl();
-        connect(AppConfig::instance(), &AppConfig::apiBaseUrlChanged, this, [this]() {
-            setBaseUrl(AppConfig::instance()->apiBaseUrl());
-        });
+        connect(AppConfig::instance(), &AppConfig::apiBaseUrlChanged, this,
+                [this]() { setBaseUrl(AppConfig::instance()->apiBaseUrl()); });
     }
 }
 
-NetworkManager* NetworkManager::instance()
-{
+NetworkManager *NetworkManager::instance() {
     if (!s_networkManagerInstance) {
         new NetworkManager(qApp);
     }
     return s_networkManagerInstance;
 }
 
-void NetworkManager::resetForTesting()
-{
+void NetworkManager::resetForTesting() {
     m_refreshQueue.clear();
     m_isRefreshingToken = false;
     m_interceptors.clear();
 }
 
-QString NetworkManager::baseUrl() const
-{
+QString NetworkManager::baseUrl() const {
     return m_baseUrl;
 }
 
-void NetworkManager::setBaseUrl(const QString &url)
-{
+void NetworkManager::setBaseUrl(const QString &url) {
     if (m_baseUrl != url) {
         m_baseUrl = url;
         emit baseUrlChanged();
     }
 }
 
-bool NetworkManager::isOnline() const
-{
+bool NetworkManager::isOnline() const {
     return m_isOnline;
 }
 
-void NetworkManager::addInterceptor(std::shared_ptr<INetworkInterceptor> interceptor)
-{
+void NetworkManager::addInterceptor(std::shared_ptr<INetworkInterceptor> interceptor) {
     m_interceptors.append(interceptor);
 }
 
-void NetworkManager::prepareRequest(QNetworkRequest &request, const QString &verb, const QString &endpoint)
-{
+void NetworkManager::prepareRequest(QNetworkRequest &request, const QString &verb, const QString &endpoint) {
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     request.setRawHeader("Accept", "application/json");
     request.setRawHeader("X-Client-Platform", QSysInfo::prettyProductName().toUtf8());
@@ -85,16 +74,17 @@ void NetworkManager::prepareRequest(QNetworkRequest &request, const QString &ver
     }
 }
 
-void NetworkManager::retryRequest(const QString &verb, const QString &endpoint, const QByteArray &data, int attempt, ResultCallback callback)
-{
+void NetworkManager::retryRequest(const QString &verb, const QString &endpoint, const QByteArray &data, int attempt,
+                                  ResultCallback callback) {
     sendRequest(verb, endpoint, data, attempt, callback);
 }
 
-void NetworkManager::sendRequest(const QString &verb, const QString &endpoint, const QByteArray &data, int attempt, ResultCallback callback)
-{
+void NetworkManager::sendRequest(const QString &verb, const QString &endpoint, const QByteArray &data, int attempt,
+                                 ResultCallback callback) {
     // 1. Check Circuit Breaker
     if (!m_circuitBreaker.canExecute(endpoint)) {
-        AppError err = AppError::network(QStringLiteral("Circuit breaker open for endpoint (service experiencing degradation)"));
+        AppError err =
+            AppError::network(QStringLiteral("Circuit breaker open for endpoint (service experiencing degradation)"));
         qCWarning(qcNetwork) << "[CIRCUIT-OPEN]" << verb << endpoint;
         callback(Result<QJsonDocument>::error(err));
         return;
@@ -150,14 +140,15 @@ void NetworkManager::sendRequest(const QString &verb, const QString &endpoint, c
         }
 
         // 4B. Handle transient errors with exponential backoff & jitter
-        bool isTransientError = (httpCode == 502 || httpCode == 503 || httpCode == 504 || reply->error() == QNetworkReply::TimeoutError);
+        bool isTransientError =
+            (httpCode == 502 || httpCode == 503 || httpCode == 504 || reply->error() == QNetworkReply::TimeoutError);
         int maxRetries = AppConfig::instance() ? AppConfig::instance()->maxRetryAttempts() : 3;
 
         if (isTransientError && attempt < maxRetries) {
             m_circuitBreaker.recordFailure(endpoint);
             int backoffDelay = CircuitBreaker::calculateBackoffMs(attempt);
-            qCWarning(qcNetwork) << "Transient error (" << httpCode << ") on" << endpoint
-                                 << "- Retrying in" << backoffDelay << "ms (Attempt" << attempt + 1 << "/" << maxRetries << ")";
+            qCWarning(qcNetwork) << "Transient error (" << httpCode << ") on" << endpoint << "- Retrying in"
+                                 << backoffDelay << "ms (Attempt" << attempt + 1 << "/" << maxRetries << ")";
             QTimer::singleShot(backoffDelay, this, [this, verb, endpoint, data, attempt, callback]() {
                 sendRequest(verb, endpoint, data, attempt + 1, callback);
             });
@@ -177,7 +168,8 @@ void NetworkManager::sendRequest(const QString &verb, const QString &endpoint, c
             qCWarning(qcNetwork) << "[FAIL]" << verb << endpoint << "Status:" << httpCode << "Error:" << errText;
             emit requestFailed(endpoint, errText);
 
-            AppError appErr{ErrorCategory::Network, httpCode, errText, QString(), QStringLiteral("ERR_HTTP_") + QString::number(httpCode)};
+            AppError appErr{ErrorCategory::Network, httpCode, errText, QString(),
+                            QStringLiteral("ERR_HTTP_") + QString::number(httpCode)};
             callback(Result<QJsonDocument>::error(appErr));
             return;
         }
@@ -197,8 +189,7 @@ void NetworkManager::sendRequest(const QString &verb, const QString &endpoint, c
     });
 }
 
-void NetworkManager::handleTokenRefresh()
-{
+void NetworkManager::handleTokenRefresh() {
     m_isRefreshingToken = true;
     QString refToken = SecureStorage::instance()->refreshToken();
     if (refToken.isEmpty()) {
@@ -228,7 +219,8 @@ void NetworkManager::handleTokenRefresh()
                 QString newAccess = doc.object().value("accessToken").toString();
                 QString newRefresh = doc.object().value("refreshToken").toString();
                 if (!newAccess.isEmpty()) {
-                    SecureStorage::instance()->saveTokens(newAccess, newRefresh.isEmpty() ? SecureStorage::instance()->refreshToken() : newRefresh);
+                    SecureStorage::instance()->saveTokens(
+                        newAccess, newRefresh.isEmpty() ? SecureStorage::instance()->refreshToken() : newRefresh);
                     qCDebug(qcAuth) << "Token refresh successful, replay pending queued requests";
                     flushPendingQueue(true);
                     return;
@@ -243,44 +235,39 @@ void NetworkManager::handleTokenRefresh()
     });
 }
 
-void NetworkManager::flushPendingQueue(bool success)
-{
+void NetworkManager::flushPendingQueue(bool success) {
     while (!m_refreshQueue.isEmpty()) {
         PendingRequest pr = m_refreshQueue.dequeue();
         if (success) {
             sendRequest(pr.verb, pr.endpoint, pr.data, pr.attempt, pr.callback);
         } else {
-            pr.callback(Result<QJsonDocument>::error(AppError::auth(QStringLiteral("Session expired. Please log in again."))));
+            pr.callback(
+                Result<QJsonDocument>::error(AppError::auth(QStringLiteral("Session expired. Please log in again."))));
         }
     }
 }
 
 // Typed Result methods
-void NetworkManager::executeGet(const QString &endpoint, ResultCallback callback)
-{
+void NetworkManager::executeGet(const QString &endpoint, ResultCallback callback) {
     sendRequest(QStringLiteral("GET"), endpoint, QByteArray(), 0, callback);
 }
 
-void NetworkManager::executePost(const QString &endpoint, const QJsonObject &body, ResultCallback callback)
-{
+void NetworkManager::executePost(const QString &endpoint, const QJsonObject &body, ResultCallback callback) {
     QByteArray data = QJsonDocument(body).toJson(QJsonDocument::Compact);
     sendRequest(QStringLiteral("POST"), endpoint, data, 0, callback);
 }
 
-void NetworkManager::executePatch(const QString &endpoint, const QJsonObject &body, ResultCallback callback)
-{
+void NetworkManager::executePatch(const QString &endpoint, const QJsonObject &body, ResultCallback callback) {
     QByteArray data = QJsonDocument(body).toJson(QJsonDocument::Compact);
     sendRequest(QStringLiteral("PATCH"), endpoint, data, 0, callback);
 }
 
-void NetworkManager::executeDelete(const QString &endpoint, ResultCallback callback)
-{
+void NetworkManager::executeDelete(const QString &endpoint, ResultCallback callback) {
     sendRequest(QStringLiteral("DELETE"), endpoint, QByteArray(), 0, callback);
 }
 
 // Backwards compatibility layer
-void NetworkManager::get(const QString &endpoint, JsonCallback callback)
-{
+void NetworkManager::get(const QString &endpoint, JsonCallback callback) {
     executeGet(endpoint, [callback](const Result<QJsonDocument> &res) {
         if (res.isSuccess()) {
             callback(true, res.value(), QString());
@@ -290,8 +277,7 @@ void NetworkManager::get(const QString &endpoint, JsonCallback callback)
     });
 }
 
-void NetworkManager::post(const QString &endpoint, const QJsonObject &body, JsonCallback callback)
-{
+void NetworkManager::post(const QString &endpoint, const QJsonObject &body, JsonCallback callback) {
     executePost(endpoint, body, [callback](const Result<QJsonDocument> &res) {
         if (res.isSuccess()) {
             callback(true, res.value(), QString());
@@ -301,8 +287,7 @@ void NetworkManager::post(const QString &endpoint, const QJsonObject &body, Json
     });
 }
 
-void NetworkManager::patch(const QString &endpoint, const QJsonObject &body, JsonCallback callback)
-{
+void NetworkManager::patch(const QString &endpoint, const QJsonObject &body, JsonCallback callback) {
     executePatch(endpoint, body, [callback](const Result<QJsonDocument> &res) {
         if (res.isSuccess()) {
             callback(true, res.value(), QString());
@@ -312,8 +297,7 @@ void NetworkManager::patch(const QString &endpoint, const QJsonObject &body, Jso
     });
 }
 
-void NetworkManager::remove(const QString &endpoint, JsonCallback callback)
-{
+void NetworkManager::remove(const QString &endpoint, JsonCallback callback) {
     executeDelete(endpoint, [callback](const Result<QJsonDocument> &res) {
         if (res.isSuccess()) {
             callback(true, res.value(), QString());

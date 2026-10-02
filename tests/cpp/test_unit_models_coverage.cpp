@@ -35,33 +35,24 @@ public:
     }
 };
 
-class TestUnitModelsCoverage : public QObject
-{
+class TestUnitModelsCoverage : public QObject {
     Q_OBJECT
 
 private:
     MockApiServer m_server;
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         QVERIFY(m_server.start());
         NetworkManager::instance()->setBaseUrl(m_server.url());
     }
 
-    void cleanupTestCase()
-    {
-        m_server.stop();
-    }
+    void cleanupTestCase() { m_server.stop(); }
 
-    void init()
-    {
-        m_server.resetData();
-    }
+    void init() { m_server.resetData(); }
 
     // ── 1. CartManager Deep Coverage ─────────────────────────────────────────
-    void testCartManagerFullCoverage()
-    {
+    void testCartManagerFullCoverage() {
         CartManager *cart = CartManager::instance();
         cart->resetForTesting();
 
@@ -133,8 +124,7 @@ private slots:
     }
 
     // ── 2. ProductModel Deep Coverage ────────────────────────────────────────
-    void testProductModelFullCoverage()
-    {
+    void testProductModelFullCoverage() {
         ProductModel model;
         QCOMPARE(model.rowCount(), 0);
         QCOMPARE(model.isLoading(), false);
@@ -200,8 +190,7 @@ private slots:
     }
 
     // ── 3. ShopModel Deep Coverage ───────────────────────────────────────────
-    void testShopModelFullCoverage()
-    {
+    void testShopModelFullCoverage() {
         ShopModel model;
         QCOMPARE(model.rowCount(), 0);
         QCOMPARE(model.isLoading(), false);
@@ -248,8 +237,7 @@ private slots:
     }
 
     // ── 4. OrderModel Deep Coverage ──────────────────────────────────────────
-    void testOrderModelFullCoverage()
-    {
+    void testOrderModelFullCoverage() {
         OrderModel model;
         QCOMPARE(model.rowCount(), 0);
         QCOMPARE(model.isLoading(), false);
@@ -320,8 +308,7 @@ private slots:
     }
 
     // ── 5. ApiClient Deep Coverage ───────────────────────────────────────────
-    void testApiClientErrorMappings()
-    {
+    void testApiClientErrorMappings() {
         ApiClient *client = ApiClient::instance();
         client->resetForTesting();
 
@@ -380,8 +367,7 @@ private slots:
     }
 
     // ── 6. AuthService Deep Coverage ─────────────────────────────────────────
-    void testAuthServiceFullCoverage()
-    {
+    void testAuthServiceFullCoverage() {
         AuthService *auth = AuthService::instance();
         auth->resetForTesting();
 
@@ -423,7 +409,9 @@ private slots:
         sessionUser[QStringLiteral("name")] = QStringLiteral("Session User");
         sessionUser[QStringLiteral("role")] = QStringLiteral("shopkeeper");
         sessionUser[QStringLiteral("shopId")] = QStringLiteral("shop_1");
-        SecureStorage::instance()->saveSecret(QStringLiteral("session_user_data"), QString::fromUtf8(QJsonDocument(sessionUser).toJson(QJsonDocument::Compact)));
+        SecureStorage::instance()->saveSecret(
+            QStringLiteral("session_user_data"),
+            QString::fromUtf8(QJsonDocument(sessionUser).toJson(QJsonDocument::Compact)));
         auth->checkSession();
         QCOMPARE(auth->userName(), QStringLiteral("Session User"));
         QCOMPARE(auth->userRole(), QStringLiteral("shopkeeper"));
@@ -437,8 +425,7 @@ private slots:
     }
 
     // ── 7. NetworkManager Deep Coverage ──────────────────────────────────────
-    void testNetworkManagerFullCoverage()
-    {
+    void testNetworkManagerFullCoverage() {
         NetworkManager *nm = NetworkManager::instance();
         nm->resetForTesting();
 
@@ -490,15 +477,13 @@ private slots:
 
         // Typed PATCH and DELETE
         bool typedPatchDone = false;
-        nm->executePatch(QStringLiteral("/api/health"), b, [&](const Result<QJsonDocument> &res) {
-            typedPatchDone = res.isSuccess();
-        });
+        nm->executePatch(QStringLiteral("/api/health"), b,
+                         [&](const Result<QJsonDocument> &res) { typedPatchDone = res.isSuccess(); });
         QTRY_VERIFY_WITH_TIMEOUT(typedPatchDone, 2000);
 
         bool typedDeleteDone = false;
-        nm->executeDelete(QStringLiteral("/api/health"), [&](const Result<QJsonDocument> &res) {
-            typedDeleteDone = res.isSuccess();
-        });
+        nm->executeDelete(QStringLiteral("/api/health"),
+                          [&](const Result<QJsonDocument> &res) { typedDeleteDone = res.isSuccess(); });
         QTRY_VERIFY_WITH_TIMEOUT(typedDeleteDone, 2000);
 
         // 401 token refresh loop
@@ -506,29 +491,26 @@ private slots:
         m_server.setFailNextRequests(1, 401);
 
         bool refreshedReqDone = false;
-        nm->executeGet(QStringLiteral("/api/health"), [&](const Result<QJsonDocument> &res) {
-            refreshedReqDone = res.isSuccess();
-        });
+        nm->executeGet(QStringLiteral("/api/health"),
+                       [&](const Result<QJsonDocument> &res) { refreshedReqDone = res.isSuccess(); });
         QTRY_VERIFY_WITH_TIMEOUT(refreshedReqDone, 3000);
 
         // retryRequest
         bool retryDone = false;
-        nm->retryRequest(QStringLiteral("GET"), QStringLiteral("/api/health"), QByteArray(), 1, [&](const Result<QJsonDocument> &res) {
-            retryDone = res.isSuccess();
-        });
+        nm->retryRequest(QStringLiteral("GET"), QStringLiteral("/api/health"), QByteArray(), 1,
+                         [&](const Result<QJsonDocument> &res) { retryDone = res.isSuccess(); });
         QTRY_VERIFY_WITH_TIMEOUT(retryDone, 2000);
 
         // 401 with expired refresh token emits tokenRefreshRequired
         SecureStorage::instance()->saveTokens(QStringLiteral("old_access"), QStringLiteral("expired_refresh"));
         m_server.setFailNextRequests(1, 401);
         QSignalSpy refreshRequiredSpy(nm, &NetworkManager::tokenRefreshRequired);
-        nm->executeGet(QStringLiteral("/api/health"), [](const Result<QJsonDocument>&){});
+        nm->executeGet(QStringLiteral("/api/health"), [](const Result<QJsonDocument> &) {});
         QTRY_VERIFY_WITH_TIMEOUT(refreshRequiredSpy.count() >= 1, 2000);
     }
 
     // ── 8. SecureStorage Extended Deep Coverage ──────────────────────────────
-    void testSecureStorageExtended()
-    {
+    void testSecureStorageExtended() {
         SecureStorage *storage = SecureStorage::instance();
         storage->resetForTesting();
 

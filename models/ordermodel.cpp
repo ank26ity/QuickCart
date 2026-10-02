@@ -12,51 +12,57 @@
 #include <QtCore/QPointer>
 #include <QtConcurrent/QtConcurrent>
 
-OrderModel::OrderModel(QObject *parent)
-    : QAbstractListModel(parent), m_isLoading(false)
-{
+OrderModel::OrderModel(QObject *parent) : QAbstractListModel(parent), m_isLoading(false) {
     m_pollTimer = new QTimer(this);
-    connect(m_pollTimer, &QTimer::timeout, this, [this]() {
-        fetchOrders(true);
-    });
+    connect(m_pollTimer, &QTimer::timeout, this, [this]() { fetchOrders(true); });
 }
 
-OrderModel::~OrderModel()
-{
+OrderModel::~OrderModel() {
     stopPolling();
 }
 
-int OrderModel::rowCount(const QModelIndex &parent) const
-{
-    if (parent.isValid()) return 0;
+int OrderModel::rowCount(const QModelIndex &parent) const {
+    if (parent.isValid())
+        return 0;
     return m_orders.size();
 }
 
-QVariant OrderModel::data(const QModelIndex &index, int role) const
-{
+QVariant OrderModel::data(const QModelIndex &index, int role) const {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_orders.size())
         return QVariant();
 
     const OrderRecordData &o = m_orders.at(index.row());
     switch (role) {
-    case IdRole: return o.id;
-    case CustomerIdRole: return o.customerId;
-    case ShopIdRole: return o.shopId;
-    case ShopNameRole: return o.shopName;
-    case DeliveryBoyIdRole: return o.deliveryBoyId;
-    case AddressRole: return o.address;
-    case StatusRole: return o.status;
-    case SubtotalRole: return o.subtotal;
-    case DeliveryFeeRole: return o.deliveryFee;
-    case TotalRole: return o.total;
-    case CreatedAtRole: return o.createdAt;
-    case ItemsRole: return o.items;
-    default: return QVariant();
+        case IdRole:
+            return o.id;
+        case CustomerIdRole:
+            return o.customerId;
+        case ShopIdRole:
+            return o.shopId;
+        case ShopNameRole:
+            return o.shopName;
+        case DeliveryBoyIdRole:
+            return o.deliveryBoyId;
+        case AddressRole:
+            return o.address;
+        case StatusRole:
+            return o.status;
+        case SubtotalRole:
+            return o.subtotal;
+        case DeliveryFeeRole:
+            return o.deliveryFee;
+        case TotalRole:
+            return o.total;
+        case CreatedAtRole:
+            return o.createdAt;
+        case ItemsRole:
+            return o.items;
+        default:
+            return QVariant();
     }
 }
 
-QHash<int, QByteArray> OrderModel::roleNames() const
-{
+QHash<int, QByteArray> OrderModel::roleNames() const {
     QHash<int, QByteArray> roles;
     roles[IdRole] = "orderId";
     roles[CustomerIdRole] = "customerId";
@@ -73,26 +79,23 @@ QHash<int, QByteArray> OrderModel::roleNames() const
     return roles;
 }
 
-bool OrderModel::isLoading() const
-{
+bool OrderModel::isLoading() const {
     return m_isLoading;
 }
 
-int OrderModel::count() const
-{
+int OrderModel::count() const {
     return m_orders.size();
 }
 
-QString OrderModel::errorMessage() const
-{
+QString OrderModel::errorMessage() const {
     return m_errorMessage;
 }
 
-void OrderModel::populateFromJson(const QJsonArray &arr)
-{
+void OrderModel::populateFromJson(const QJsonArray &arr) {
     QVector<OrderRecordData> newOrders;
     for (const QJsonValue &val : arr) {
-        if (!val.isObject()) continue;
+        if (!val.isObject())
+            continue;
         QJsonObject obj = val.toObject();
 
         OrderRecordData o;
@@ -128,8 +131,7 @@ void OrderModel::populateFromJson(const QJsonArray &arr)
     emit countChanged();
 }
 
-void OrderModel::fetchOrders(bool isOnlineRider)
-{
+void OrderModel::fetchOrders(bool isOnlineRider) {
     m_isLoading = true;
     emit loadingChanged();
 
@@ -138,7 +140,8 @@ void OrderModel::fetchOrders(bool isOnlineRider)
     QPointer<OrderModel> self(this);
     NetworkManager::instance()->get(endpoint, [self](bool success, const QJsonDocument &doc, const QString &err) {
         Q_UNUSED(err);
-        if (!self) return;
+        if (!self)
+            return;
         if (!success || !doc.isArray()) {
             self->beginResetModel();
             self->m_orders.clear();
@@ -153,9 +156,9 @@ void OrderModel::fetchOrders(bool isOnlineRider)
     });
 }
 
-void OrderModel::updateOrderStatus(const QString &orderId, const QString &nextStatus, const QString &actorRole)
-{
-    if (orderId.isEmpty()) return;
+void OrderModel::updateOrderStatus(const QString &orderId, const QString &nextStatus, const QString &actorRole) {
+    if (orderId.isEmpty())
+        return;
 
     // Find current order to validate transition via OrderStateMachine
     OrderStateMachine::OrderStatus currentStatus = OrderStateMachine::OrderStatus::Unknown;
@@ -185,46 +188,52 @@ void OrderModel::updateOrderStatus(const QString &orderId, const QString &nextSt
     body[QStringLiteral("status")] = nextStatus;
 
     QPointer<OrderModel> self(this);
-    NetworkManager::instance()->patch(QString(QStringLiteral("/api/orders/%1")).arg(orderId), body, [self, orderId, nextStatus](bool success, const QJsonDocument &doc, const QString &err) {
-        Q_UNUSED(doc);
-        if (!self) return;
-        if (success) {
-            for (auto &o : self->m_orders) {
-                if (o.id == orderId) {
-                    o.status = nextStatus;
-                    break;
+    NetworkManager::instance()->patch(
+        QString(QStringLiteral("/api/orders/%1")).arg(orderId), body,
+        [self, orderId, nextStatus](bool success, const QJsonDocument &doc, const QString &err) {
+            Q_UNUSED(doc);
+            if (!self)
+                return;
+            if (success) {
+                for (auto &o : self->m_orders) {
+                    if (o.id == orderId) {
+                        o.status = nextStatus;
+                        break;
+                    }
                 }
+                self->fetchOrders();
+                emit self->orderUpdated();
+            } else {
+                self->m_errorMessage = err.isEmpty() ? QStringLiteral("Failed to update order status.") : err;
+                emit self->errorChanged();
             }
-            self->fetchOrders();
-            emit self->orderUpdated();
-        } else {
-            self->m_errorMessage = err.isEmpty() ? QStringLiteral("Failed to update order status.") : err;
-            emit self->errorChanged();
-        }
-    });
+        });
 }
 
-void OrderModel::assignRiderToOrder(const QString &orderId, const QString &riderId)
-{
-    if (orderId.isEmpty() || riderId.isEmpty()) return;
+void OrderModel::assignRiderToOrder(const QString &orderId, const QString &riderId) {
+    if (orderId.isEmpty() || riderId.isEmpty())
+        return;
 
     QJsonObject body;
     body[QStringLiteral("delivery_boy_id")] = riderId;
 
     QPointer<OrderModel> self(this);
-    NetworkManager::instance()->patch(QString(QStringLiteral("/api/admin/orders/%1/assign")).arg(orderId), body, [self](bool success, const QJsonDocument &doc, const QString &err) {
-        Q_UNUSED(doc); Q_UNUSED(err);
-        if (!self) return;
-        if (success) {
-            self->fetchOrders();
-            emit self->orderUpdated();
-        }
-    });
+    NetworkManager::instance()->patch(QString(QStringLiteral("/api/admin/orders/%1/assign")).arg(orderId), body,
+                                      [self](bool success, const QJsonDocument &doc, const QString &err) {
+                                          Q_UNUSED(doc);
+                                          Q_UNUSED(err);
+                                          if (!self)
+                                              return;
+                                          if (success) {
+                                              self->fetchOrders();
+                                              emit self->orderUpdated();
+                                          }
+                                      });
 }
 
-QVariantMap OrderModel::getOrderAt(int index) const
-{
-    if (index < 0 || index >= m_orders.size()) return QVariantMap();
+QVariantMap OrderModel::getOrderAt(int index) const {
+    if (index < 0 || index >= m_orders.size())
+        return QVariantMap();
     const OrderRecordData &o = m_orders.at(index);
     QVariantMap map;
     map[QStringLiteral("id")] = o.id;
@@ -242,15 +251,13 @@ QVariantMap OrderModel::getOrderAt(int index) const
     return map;
 }
 
-void OrderModel::startPolling(int intervalMs)
-{
+void OrderModel::startPolling(int intervalMs) {
     if (m_pollTimer && !m_pollTimer->isActive()) {
         m_pollTimer->start(intervalMs);
     }
 }
 
-void OrderModel::stopPolling()
-{
+void OrderModel::stopPolling() {
     if (m_pollTimer && m_pollTimer->isActive()) {
         m_pollTimer->stop();
     }

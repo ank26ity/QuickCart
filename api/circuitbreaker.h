@@ -6,15 +6,14 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QMap>
 
-class CircuitBreaker : public QObject
-{
+class CircuitBreaker : public QObject {
     Q_OBJECT
 
 public:
     enum class State {
-        Closed,   // Normal
-        Open,     // Tripped, fast-failing
-        HalfOpen  // Testing recovery
+        Closed,  // Normal
+        Open,    // Tripped, fast-failing
+        HalfOpen // Testing recovery
     };
     Q_ENUM(State)
 

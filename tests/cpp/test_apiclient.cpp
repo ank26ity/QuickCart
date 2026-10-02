@@ -9,32 +9,23 @@
 #include "../../api/networkmanager.h"
 #include "../tools/mockapiserver.h"
 
-class TestApiClient : public QObject
-{
+class TestApiClient : public QObject {
     Q_OBJECT
 
 private:
     MockApiServer m_server;
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         QVERIFY(m_server.start());
         NetworkManager::instance()->setBaseUrl(m_server.url());
     }
 
-    void cleanupTestCase()
-    {
-        m_server.stop();
-    }
+    void cleanupTestCase() { m_server.stop(); }
 
-    void init()
-    {
-        m_server.resetData();
-    }
+    void init() { m_server.resetData(); }
 
-    void testIdempotencyKeyGeneration()
-    {
+    void testIdempotencyKeyGeneration() {
         QString key1 = ApiClient::generateIdempotencyKey();
         QString key2 = ApiClient::generateIdempotencyKey();
 
@@ -44,8 +35,7 @@ private slots:
         QVERIFY(key1.length() >= 32);
     }
 
-    void testHttpStatusMapping()
-    {
+    void testHttpStatusMapping() {
         // 400 Validation
         auto err400 = ApiClient::mapHttpStatusToError(400, "{\"error\": \"Invalid quantity\"}");
         QCOMPARE(err400.category, ErrorCategory::Validation);
@@ -88,21 +78,20 @@ private slots:
         QCOMPARE(err503.statusCode, 503);
     }
 
-    void testRegisterAndLoginApi()
-    {
+    void testRegisterAndLoginApi() {
         ApiClient client;
         bool registerDone = false;
         bool registerSuccess = false;
 
         client.registerUser("client_user@quickcart.com", "Password123!", "customer", "Client User",
-            [&](const Result<AuthResponseDto> &res) {
-                registerDone = true;
-                registerSuccess = res.isSuccess();
-                if (res.isSuccess()) {
-                    QCOMPARE(res.value().email, QStringLiteral("client_user@quickcart.com"));
-                    QCOMPARE(res.value().role, QStringLiteral("customer"));
-                }
-            });
+                            [&](const Result<AuthResponseDto> &res) {
+                                registerDone = true;
+                                registerSuccess = res.isSuccess();
+                                if (res.isSuccess()) {
+                                    QCOMPARE(res.value().email, QStringLiteral("client_user@quickcart.com"));
+                                    QCOMPARE(res.value().role, QStringLiteral("customer"));
+                                }
+                            });
 
         QTRY_VERIFY_WITH_TIMEOUT(registerDone, 30000);
         QVERIFY(registerSuccess);
@@ -110,21 +99,19 @@ private slots:
         // Test Login
         bool loginDone = false;
         bool loginSuccess = false;
-        client.login("client_user@quickcart.com", "Password123!",
-            [&](const Result<AuthResponseDto> &res) {
-                loginDone = true;
-                loginSuccess = res.isSuccess();
-                if (res.isSuccess()) {
-                    QVERIFY(!res.value().accessToken.isEmpty());
-                }
-            });
+        client.login("client_user@quickcart.com", "Password123!", [&](const Result<AuthResponseDto> &res) {
+            loginDone = true;
+            loginSuccess = res.isSuccess();
+            if (res.isSuccess()) {
+                QVERIFY(!res.value().accessToken.isEmpty());
+            }
+        });
 
         QTRY_VERIFY_WITH_TIMEOUT(loginDone, 30000);
         QVERIFY(loginSuccess);
     }
 
-    void testFetchShopsApi()
-    {
+    void testFetchShopsApi() {
         ApiClient client;
         bool done = false;
         bool success = false;
@@ -141,8 +128,7 @@ private slots:
         QVERIFY(success);
     }
 
-    void testCreateOrderAndUpdateStatusApi()
-    {
+    void testCreateOrderAndUpdateStatusApi() {
         ApiClient client;
 
         OrderCreateDto createDto;

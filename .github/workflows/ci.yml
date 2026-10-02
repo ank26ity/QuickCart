@@ -246,10 +246,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Qt 6.11 (Windows MSVC)
+      - name: Install Qt 6.7.3 (Windows MSVC)
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.11.0'
+          version: '6.7.3'
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
@@ -284,9 +284,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Android SDK & NDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Host Qt 6.11 (Linux Desktop)
         uses: jurplel/install-qt-action@v4
         with:
@@ -297,10 +294,10 @@ jobs:
           modules: 'qtshadertools'
           dir: '${{ runner.temp }}/qt-host'
 
-      - name: Install Target Qt 6.11 (Android ARM64)
+      - name: Install Target Qt 6.7.3 (Android ARM64)
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.11.0'
+          version: '6.7.3'
           target: 'android'
           arch: 'android_arm64_v8a'
           dir: '${{ runner.temp }}/qt-android'
@@ -308,8 +305,9 @@ jobs:
       - name: Configure & Verify Android Toolchain
         run: |
           export QT_HOST_PATH="${{ runner.temp }}/qt-host/Qt/6.11.0/gcc_64"
-          cmake -B build-android -S . \
-            -DCMAKE_TOOLCHAIN_FILE="${{ runner.temp }}/qt-android/Qt/6.11.0/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake" \
+          export ANDROID_NDK_ROOT="${ANDROID_NDK_LATEST_HOME:-/usr/local/lib/android/sdk/ndk/27.0.12077973}"
+          cmake -B build-android -S . -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="${{ runner.temp }}/qt-android/Qt/6.7.3/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake" \
             -DQT_CHAINLOAD_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" \
             -DQT_HOST_PATH="$QT_HOST_PATH" \
             -DANDROID_ABI=arm64-v8a \

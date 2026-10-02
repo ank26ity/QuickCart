@@ -5,8 +5,7 @@
 #include <QtNetwork/QNetworkReply>
 #include <QtCore/QJsonObject>
 
-class INetworkInterceptor
-{
+class INetworkInterceptor {
 public:
     virtual ~INetworkInterceptor() = default;
     virtual void onRequest(QNetworkRequest &request, const QByteArray &body) = 0;

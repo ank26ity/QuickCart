@@ -1,6 +1,7 @@
 /**
  * @file test_merchant_flow.cpp
- * @brief Integration tests for Merchant flow (4c & 4f): order queue, state transitions (Pending->Accepted->Preparing->Ready).
+ * @brief Integration tests for Merchant flow (4c & 4f): order queue, state transitions
+ * (Pending->Accepted->Preparing->Ready).
  * @layer Tests / Integration (C++ / Qt Test)
  */
 
@@ -9,27 +10,21 @@
 #include "../../api/networkmanager.h"
 #include "../tools/mockapiserver.h"
 
-class TestMerchantFlow : public QObject
-{
+class TestMerchantFlow : public QObject {
     Q_OBJECT
 
 private:
     MockApiServer m_server;
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         QVERIFY(m_server.start());
         NetworkManager::instance()->setBaseUrl(m_server.url());
     }
 
-    void cleanupTestCase()
-    {
-        m_server.stop();
-    }
+    void cleanupTestCase() { m_server.stop(); }
 
-    void testMerchantLifecycleTransitions()
-    {
+    void testMerchantLifecycleTransitions() {
         // 1. Seed a pending order into mock server directly
         QJsonObject pendingOrder;
         pendingOrder["_id"] = "order_merch_test_1";

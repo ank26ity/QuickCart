@@ -17,27 +17,23 @@ static double calculateHaversine(double lat1, double lon1, double lat2, double l
     constexpr double R = 6371.0;
     double dLat = (lat2 - lat1) * 3.14159265358979323846 / 180.0;
     double dLon = (lon2 - lon1) * 3.14159265358979323846 / 180.0;
-    double a = std::sin(dLat / 2.0) * std::sin(dLat / 2.0) +
-               std::cos(lat1 * 3.14159265358979323846 / 180.0) * std::cos(lat2 * 3.14159265358979323846 / 180.0) *
-               std::sin(dLon / 2.0) * std::sin(dLon / 2.0);
+    double a = std::sin(dLat / 2.0) * std::sin(dLat / 2.0) + std::cos(lat1 * 3.14159265358979323846 / 180.0) *
+                                                                 std::cos(lat2 * 3.14159265358979323846 / 180.0) *
+                                                                 std::sin(dLon / 2.0) * std::sin(dLon / 2.0);
     double c = 2.0 * std::atan2(std::sqrt(a), std::sqrt(1.0 - a));
     return R * c;
 }
 
-MockApiServer::MockApiServer(QObject *parent)
-    : QObject(parent), m_server(new QTcpServer(this))
-{
+MockApiServer::MockApiServer(QObject *parent) : QObject(parent), m_server(new QTcpServer(this)) {
     connect(m_server, &QTcpServer::newConnection, this, &MockApiServer::handleNewConnection);
     resetData();
 }
 
-MockApiServer::~MockApiServer()
-{
+MockApiServer::~MockApiServer() {
     stop();
 }
 
-bool MockApiServer::start()
-{
+bool MockApiServer::start() {
     if (m_server->listen(QHostAddress::LocalHost, 0)) {
         m_port = m_server->serverPort();
         return true;
@@ -45,31 +41,26 @@ bool MockApiServer::start()
     return false;
 }
 
-void MockApiServer::stop()
-{
+void MockApiServer::stop() {
     if (m_server->isListening()) {
         m_server->close();
     }
 }
 
-QString MockApiServer::url() const
-{
+QString MockApiServer::url() const {
     return QString(QStringLiteral("http://127.0.0.1:%1")).arg(m_port);
 }
 
-quint16 MockApiServer::port() const
-{
+quint16 MockApiServer::port() const {
     return m_port;
 }
 
-void MockApiServer::setFailNextRequests(int count, int statusCode)
-{
+void MockApiServer::setFailNextRequests(int count, int statusCode) {
     m_failCount = count;
     m_failStatusCode = statusCode;
 }
 
-void MockApiServer::resetData()
-{
+void MockApiServer::resetData() {
     m_users.clear();
     m_shops.clear();
     m_products.clear();
@@ -109,14 +100,12 @@ void MockApiServer::resetData()
     courierVerified["complianceStatus"] = "verified";
     m_users["courier@quickcart.com"] = courierVerified;
 
-
     QJsonObject admin;
     admin["_id"] = "user_admin_1";
     admin["name"] = "Admin User";
     admin["email"] = "admin@quickcart.com";
     admin["role"] = "admin";
     m_users["admin@quickcart.com"] = admin;
-
 
     // Seed test shops
     QJsonObject shop1;
@@ -223,24 +212,20 @@ void MockApiServer::resetData()
     m_products["prod_5"] = prod5;
 }
 
-void MockApiServer::addOrder(const QJsonObject &order)
-{
+void MockApiServer::addOrder(const QJsonObject &order) {
     QString id = order.value("_id").toString(order.value("id").toString());
     m_orders[id] = order;
 }
 
-QString MockApiServer::getOrderDeliveryOtp(const QString &orderId) const
-{
+QString MockApiServer::getOrderDeliveryOtp(const QString &orderId) const {
     return m_orderOtps.value(orderId);
 }
 
-void MockApiServer::setOrderDeliveryOtp(const QString &orderId, const QString &otp)
-{
+void MockApiServer::setOrderDeliveryOtp(const QString &orderId, const QString &otp) {
     m_orderOtps[orderId] = otp;
 }
 
-void MockApiServer::handleNewConnection()
-{
+void MockApiServer::handleNewConnection() {
     while (m_server->hasPendingConnections()) {
         QTcpSocket *socket = m_server->nextPendingConnection();
         connect(socket, &QTcpSocket::readyRead, this, [this, socket]() {
@@ -248,12 +233,14 @@ void MockApiServer::handleNewConnection()
             const QByteArray &buf = m_buffers[socket];
 
             int headerEnd = buf.indexOf("\r\n\r\n");
-            if (headerEnd == -1) return;
+            if (headerEnd == -1)
+                return;
 
             int contentLength = 0;
             QByteArray headers = buf.left(headerEnd);
             int clPos = headers.indexOf("Content-Length: ");
-            if (clPos == -1) clPos = headers.indexOf("content-length: ");
+            if (clPos == -1)
+                clPos = headers.indexOf("content-length: ");
             if (clPos != -1) {
                 int lineEnd = headers.indexOf("\r\n", clPos);
                 contentLength = headers.mid(clPos + 16, lineEnd - (clPos + 16)).trimmed().toInt();
@@ -272,16 +259,17 @@ void MockApiServer::handleNewConnection()
     }
 }
 
-void MockApiServer::sendResponse(QTcpSocket *socket, int statusCode, const QByteArray &contentType, const QByteArray &body)
-{
-    QByteArray statusText = (statusCode == 200) ? "OK" :
-                            (statusCode == 201) ? "Created" :
-                            (statusCode == 400) ? "Bad Request" :
-                            (statusCode == 401) ? "Unauthorized" :
-                            (statusCode == 403) ? "Forbidden" :
-                            (statusCode == 404) ? "Not Found" :
-                            (statusCode == 409) ? "Conflict" :
-                            (statusCode == 503) ? "Service Unavailable" : "Internal Server Error";
+void MockApiServer::sendResponse(QTcpSocket *socket, int statusCode, const QByteArray &contentType,
+                                 const QByteArray &body) {
+    QByteArray statusText = (statusCode == 200)   ? "OK"
+                            : (statusCode == 201) ? "Created"
+                            : (statusCode == 400) ? "Bad Request"
+                            : (statusCode == 401) ? "Unauthorized"
+                            : (statusCode == 403) ? "Forbidden"
+                            : (statusCode == 404) ? "Not Found"
+                            : (statusCode == 409) ? "Conflict"
+                            : (statusCode == 503) ? "Service Unavailable"
+                                                  : "Internal Server Error";
 
     QByteArray response;
     response += QString("HTTP/1.1 %1 %2\r\n").arg(statusCode).arg(QString::fromLatin1(statusText)).toLatin1();
@@ -296,20 +284,20 @@ void MockApiServer::sendResponse(QTcpSocket *socket, int statusCode, const QByte
     socket->disconnectFromHost();
 }
 
-void MockApiServer::sendJsonResponse(QTcpSocket *socket, int statusCode, const QJsonDocument &doc)
-{
+void MockApiServer::sendJsonResponse(QTcpSocket *socket, int statusCode, const QJsonDocument &doc) {
     sendResponse(socket, statusCode, "application/json", doc.toJson(QJsonDocument::Compact));
 }
 
-void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &rawRequest)
-{
+void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &rawRequest) {
     QString reqStr = QString::fromUtf8(rawRequest);
     QStringList lines = reqStr.split(QStringLiteral("\r\n"));
-    if (lines.isEmpty()) return;
+    if (lines.isEmpty())
+        return;
 
     QString reqLine = lines.first();
     QStringList tokens = reqLine.split(QLatin1Char(' '));
-    if (tokens.size() < 2) return;
+    if (tokens.size() < 2)
+        return;
 
     QString method = tokens.at(0).toUpper();
     QUrl parsedUrl(tokens.at(1));
@@ -329,7 +317,8 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
     // Extract HTTP Headers
     QMap<QString, QString> reqHeaders;
     for (int i = 1; i < lines.size(); ++i) {
-        if (lines[i].trimmed().isEmpty()) break;
+        if (lines[i].trimmed().isEmpty())
+            break;
         int colon = lines[i].indexOf(QLatin1Char(':'));
         if (colon > 0) {
             reqHeaders[lines[i].left(colon).trimmed().toLower()] = lines[i].mid(colon + 1).trimmed();
@@ -345,8 +334,7 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
                           authHdr.contains(QStringLiteral("courier"), Qt::CaseInsensitive) ||
                           authHdr.contains(QStringLiteral("shopkeeper"), Qt::CaseInsensitive) ||
                           authHdr.contains(QStringLiteral("non_admin"), Qt::CaseInsensitive) ||
-                          roleHdr == QStringLiteral("customer") ||
-                          roleHdr == QStringLiteral("delivery") ||
+                          roleHdr == QStringLiteral("customer") || roleHdr == QStringLiteral("delivery") ||
                           roleHdr == QStringLiteral("shopkeeper");
 
         if (isNonAdmin) {
@@ -485,8 +473,10 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
                 continue;
             }
             if (userLat != 0.0 || userLng != 0.0) {
-                double dist = calculateHaversine(userLat, userLng, shop.value("lat").toDouble(), shop.value("lng").toDouble());
-                if (dist > 3.0) continue; // Boundary filter
+                double dist =
+                    calculateHaversine(userLat, userLng, shop.value("lat").toDouble(), shop.value("lng").toDouble());
+                if (dist > 3.0)
+                    continue; // Boundary filter
                 QJsonObject s = shop;
                 s["distance"] = dist;
                 shopArr.append(s);

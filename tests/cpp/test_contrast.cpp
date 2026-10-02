@@ -13,46 +13,35 @@
 #include <QtCore/QMap>
 #include <cmath>
 
-class TestContrast : public QObject
-{
+class TestContrast : public QObject {
     Q_OBJECT
 
 private:
     QMap<QString, QColor> m_darkTokens;
     QMap<QString, QColor> m_lightTokens;
 
-    static double sRGBtoLin(double c)
-    {
-        return (c <= 0.04045) ? (c / 12.92) : std::pow((c + 0.055) / 1.055, 2.4);
-    }
+    static double sRGBtoLin(double c) { return (c <= 0.04045) ? (c / 12.92) : std::pow((c + 0.055) / 1.055, 2.4); }
 
-    static double relativeLuminance(const QColor &color)
-    {
-        return 0.2126 * sRGBtoLin(color.redF()) +
-               0.7152 * sRGBtoLin(color.greenF()) +
+    static double relativeLuminance(const QColor &color) {
+        return 0.2126 * sRGBtoLin(color.redF()) + 0.7152 * sRGBtoLin(color.greenF()) +
                0.0722 * sRGBtoLin(color.blueF());
     }
 
-    static double contrastRatio(const QColor &c1, const QColor &c2)
-    {
+    static double contrastRatio(const QColor &c1, const QColor &c2) {
         double l1 = relativeLuminance(c1);
         double l2 = relativeLuminance(c2);
         return (std::max(l1, l2) + 0.05) / (std::min(l1, l2) + 0.05);
     }
 
-    static void logTokenPair(const char* theme, const char* fgName, const QColor& fg,
-                             const char* bgName, const QColor& bg, double minRequired)
-    {
+    static void logTokenPair(const char *theme, const char *fgName, const QColor &fg, const char *bgName,
+                             const QColor &bg, double minRequired) {
         double ratio = contrastRatio(fg, bg);
-        const char* status = (ratio >= minRequired) ? "PASS" : "FAIL";
-        printf("| %-6s | %-12s (%s) | %-12s (%s) | %6.2f:1 | %4.1f:1 | %-4s |\n",
-               theme, fgName, fg.name().toLatin1().constData(),
-               bgName, bg.name().toLatin1().constData(),
-               ratio, minRequired, status);
+        const char *status = (ratio >= minRequired) ? "PASS" : "FAIL";
+        printf("| %-6s | %-12s (%s) | %-12s (%s) | %6.2f:1 | %4.1f:1 | %-4s |\n", theme, fgName,
+               fg.name().toLatin1().constData(), bgName, bg.name().toLatin1().constData(), ratio, minRequired, status);
     }
 
-    void parseThemeQml()
-    {
+    void parseThemeQml() {
         QString path = QStringLiteral(QUICKCART_SOURCE_DIR) + QStringLiteral("/qml/theme/Theme.qml");
         QFile file(path);
         QVERIFY2(file.open(QIODevice::ReadOnly | QIODevice::Text),
@@ -62,7 +51,8 @@ private:
         file.close();
 
         // Matches: readonly property color <tokenName>: root.isDark ? "<darkVal>" : "<lightVal>"
-        QRegularExpression re(QStringLiteral("readonly\\s+property\\s+color\\s+(\\w+)\\s*:\\s*root\\.isDark\\s*\\?\\s*\"([^\"]+)\"\\s*:\\s*\"([^\"]+)\""));
+        QRegularExpression re(QStringLiteral("readonly\\s+property\\s+color\\s+(\\w+)\\s*:\\s*root\\.isDark\\s*\\?\\s*"
+                                             "\"([^\"]+)\"\\s*:\\s*\"([^\"]+)\""));
         QRegularExpressionMatchIterator it = re.globalMatch(content);
 
         while (it.hasNext()) {
@@ -75,43 +65,34 @@ private:
             m_lightTokens.insert(name, QColor(lightHex));
         }
 
-        printf("\nParsed %d color tokens dynamically from %s\n",
-               static_cast<int>(m_darkTokens.size()), path.toLatin1().constData());
+        printf("\nParsed %d color tokens dynamically from %s\n", static_cast<int>(m_darkTokens.size()),
+               path.toLatin1().constData());
     }
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         parseThemeQml();
 
         // Verify that critical tokens were successfully parsed from Theme.qml
         const QStringList requiredTokens = {
-            QStringLiteral("background"),
-            QStringLiteral("surface"),
-            QStringLiteral("primary"),
-            QStringLiteral("onPrimary"),
-            QStringLiteral("danger"),
-            QStringLiteral("onDanger"),
-            QStringLiteral("warning"),
-            QStringLiteral("onWarning"),
-            QStringLiteral("textPrimary"),
-            QStringLiteral("textSecondary"),
-            QStringLiteral("textMuted"),
-            QStringLiteral("border"),
-            QStringLiteral("inputBorder")
-        };
+            QStringLiteral("background"),    QStringLiteral("surface"),   QStringLiteral("primary"),
+            QStringLiteral("onPrimary"),     QStringLiteral("danger"),    QStringLiteral("onDanger"),
+            QStringLiteral("warning"),       QStringLiteral("onWarning"), QStringLiteral("textPrimary"),
+            QStringLiteral("textSecondary"), QStringLiteral("textMuted"), QStringLiteral("border"),
+            QStringLiteral("inputBorder")};
 
         for (const QString &token : requiredTokens) {
             QVERIFY2(m_darkTokens.contains(token), qPrintable(QString("Theme.qml missing dark token: ") + token));
             QVERIFY2(m_lightTokens.contains(token), qPrintable(QString("Theme.qml missing light token: ") + token));
         }
 
-        printf("\n| Theme  | Foreground Token             | Background Token             | Ratio    | Target | Status |\n");
-        printf("|--------|------------------------------|------------------------------|----------|--------|--------|\n");
+        printf("\n| Theme  | Foreground Token             | Background Token             | Ratio    | Target | Status "
+               "|\n");
+        printf(
+            "|--------|------------------------------|------------------------------|----------|--------|--------|\n");
     }
 
-    void testDarkThemeTextContrastAndHierarchy()
-    {
+    void testDarkThemeTextContrastAndHierarchy() {
         QColor darkBg = m_darkTokens[QStringLiteral("background")];
         QColor darkSurface = m_darkTokens[QStringLiteral("surface")];
 
@@ -142,14 +123,15 @@ private slots:
 
         QVERIFY2(lumPrimary > lumSecondary,
                  qPrintable(QString("Hierarchy violation: textPrimary lum (%1) <= textSecondary lum (%2)")
-                            .arg(lumPrimary).arg(lumSecondary)));
+                                .arg(lumPrimary)
+                                .arg(lumSecondary)));
         QVERIFY2(lumSecondary > lumMuted,
                  qPrintable(QString("Hierarchy violation: textSecondary lum (%1) <= textMuted lum (%2)")
-                            .arg(lumSecondary).arg(lumMuted)));
+                                .arg(lumSecondary)
+                                .arg(lumMuted)));
     }
 
-    void testLightThemeTextContrastAndHierarchy()
-    {
+    void testLightThemeTextContrastAndHierarchy() {
         QColor lightBg = m_lightTokens[QStringLiteral("background")];
         QColor lightSurface = m_lightTokens[QStringLiteral("surface")];
 
@@ -168,7 +150,8 @@ private slots:
         QVERIFY2(contrastRatio(textPrimary, lightBg) >= 4.5, "Light textPrimary on bg fails WCAG AA 4.5:1");
         QVERIFY2(contrastRatio(textPrimary, lightSurface) >= 4.5, "Light textPrimary on surface fails WCAG AA 4.5:1");
         QVERIFY2(contrastRatio(textSecondary, lightBg) >= 4.5, "Light textSecondary on bg fails WCAG AA 4.5:1");
-        QVERIFY2(contrastRatio(textSecondary, lightSurface) >= 4.5, "Light textSecondary on surface fails WCAG AA 4.5:1");
+        QVERIFY2(contrastRatio(textSecondary, lightSurface) >= 4.5,
+                 "Light textSecondary on surface fails WCAG AA 4.5:1");
         QVERIFY2(contrastRatio(textMuted, lightBg) >= 4.5, "Light textMuted on bg fails WCAG AA 4.5:1");
         QVERIFY2(contrastRatio(textMuted, lightSurface) >= 4.5, "Light textMuted on surface fails WCAG AA 4.5:1");
 
@@ -180,14 +163,15 @@ private slots:
 
         QVERIFY2(lumPrimary < lumSecondary,
                  qPrintable(QString("Hierarchy violation: textPrimary lum (%1) >= textSecondary lum (%2)")
-                            .arg(lumPrimary).arg(lumSecondary)));
+                                .arg(lumPrimary)
+                                .arg(lumSecondary)));
         QVERIFY2(lumSecondary < lumMuted,
                  qPrintable(QString("Hierarchy violation: textSecondary lum (%1) >= textMuted lum (%2)")
-                            .arg(lumSecondary).arg(lumMuted)));
+                                .arg(lumSecondary)
+                                .arg(lumMuted)));
     }
 
-    void testButtonAndActionContrast()
-    {
+    void testButtonAndActionContrast() {
         // Dark theme buttons
         QColor darkPrimary = m_darkTokens[QStringLiteral("primary")];
         QColor darkOnPrimary = m_darkTokens[QStringLiteral("onPrimary")];
@@ -221,8 +205,7 @@ private slots:
         QVERIFY2(contrastRatio(lightOnWarning, lightWarning) >= 4.5, "Light onWarning on warning fails 4.5:1");
     }
 
-    void testUIComponentBorders()
-    {
+    void testUIComponentBorders() {
         QColor darkBg = m_darkTokens[QStringLiteral("background")];
         QColor darkBorder = m_darkTokens[QStringLiteral("inputBorder")];
         logTokenPair("Dark", "border/input", darkBorder, "background", darkBg, 3.0);
@@ -234,8 +217,7 @@ private slots:
         QVERIFY2(contrastRatio(lightBorder, lightBg) >= 3.0, "Light border on bg fails WCAG UI 3.0:1");
     }
 
-    void testSemanticIntentTextContrast()
-    {
+    void testSemanticIntentTextContrast() {
         // Dark theme: semantic text on background and surface
         QColor darkBg = m_darkTokens[QStringLiteral("background")];
         QColor darkSurface = m_darkTokens[QStringLiteral("surface")];
@@ -291,8 +273,7 @@ private slots:
         QVERIFY2(contrastRatio(lightSuccessText, lightSurface) >= 4.5, "Light textSuccess on surface fails 4.5:1");
     }
 
-    void testFormPlaceholderAndFocusBorders()
-    {
+    void testFormPlaceholderAndFocusBorders() {
         // Dark theme: placeholder on inputBackground, focus border, border vs surfaceVariant
         QColor darkInputBg = m_darkTokens[QStringLiteral("inputBackground")];
         QColor darkPlaceholder = m_darkTokens[QStringLiteral("inputPlaceholder")];
@@ -324,8 +305,7 @@ private slots:
         QVERIFY2(contrastRatio(lightBorder, lightSurfaceVariant) >= 3.0, "Light border vs surfaceVariant fails 3.0:1");
     }
 
-    void testDisabledStates()
-    {
+    void testDisabledStates() {
         // Disabled text contrast >= 3.0:1
         QColor darkBg = m_darkTokens[QStringLiteral("background")];
         QColor darkDisabledText = m_darkTokens[QStringLiteral("textDisabled")];

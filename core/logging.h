@@ -11,8 +11,7 @@ Q_DECLARE_LOGGING_CATEGORY(qcRbac)
 Q_DECLARE_LOGGING_CATEGORY(qcStorage)
 Q_DECLARE_LOGGING_CATEGORY(qcOrder)
 
-class StructuredLogger
-{
+class StructuredLogger {
 public:
     static void init();
     static QString maskPII(const QString &text);

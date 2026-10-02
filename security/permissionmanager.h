@@ -30,8 +30,7 @@
 #include <QtCore/QSet>
 #include <QtCore/QMap>
 
-class PermissionManager : public QObject
-{
+class PermissionManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString currentRole READ currentRole WRITE setCurrentRole NOTIFY roleChanged)
     Q_PROPERTY(QString currentUserId READ currentUserId WRITE setCurrentUserId NOTIFY userChanged)
@@ -39,13 +38,7 @@ class PermissionManager : public QObject
     Q_PROPERTY(QStringList activePermissions READ activePermissions NOTIFY permissionsChanged)
 
 public:
-    enum class Role {
-        Guest,
-        Customer,
-        Shopkeeper,
-        Delivery,
-        Admin
-    };
+    enum class Role { Guest, Customer, Shopkeeper, Delivery, Admin };
     Q_ENUM(Role)
 
     explicit PermissionManager(QObject *parent = nullptr);
@@ -53,7 +46,7 @@ public:
     /**
      * @brief Singleton accessor with lazy auto-instantiation.
      */
-    static PermissionManager* instance();
+    static PermissionManager *instance();
 
     /**
      * @brief Retrieve current role as lowercase string.
@@ -108,7 +101,8 @@ public:
     /**
      * @brief Verify if user is an authorized participant in the order.
      */
-    Q_INVOKABLE bool canUpdateOrder(const QString &orderShopId, const QString &orderCourierId, const QString &orderCustomerId);
+    Q_INVOKABLE bool canUpdateOrder(const QString &orderShopId, const QString &orderCourierId,
+                                    const QString &orderCustomerId);
 
     /**
      * @brief Default home view based on current role.
@@ -118,7 +112,8 @@ public:
     /**
      * @brief Log security auditing events for authorization attempts.
      */
-    void logAccessAttempt(const QString &action, const QString &resource, bool granted, const QString &reason = QString());
+    void logAccessAttempt(const QString &action, const QString &resource, bool granted,
+                          const QString &reason = QString());
 
     /**
      * @brief Resets role and identity state for clean automated test isolation.

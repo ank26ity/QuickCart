@@ -9,13 +9,11 @@
 #include <QtCore/QJsonObject>
 #include "../../models/ordermodel.h"
 
-class TestPollingSync : public QObject
-{
+class TestPollingSync : public QObject {
     Q_OBJECT
 
 private slots:
-    void testPollingStartAndStop()
-    {
+    void testPollingStartAndStop() {
         OrderModel model;
         // Verify initial state
         QCOMPARE(model.count(), 0);
@@ -33,8 +31,7 @@ private slots:
         model.stopPolling();
     }
 
-    void testOrderQueueSyncUpdate()
-    {
+    void testOrderQueueSyncUpdate() {
         OrderModel model;
 
         QJsonArray initialOrders;

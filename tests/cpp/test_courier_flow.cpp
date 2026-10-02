@@ -1,6 +1,7 @@
 /**
  * @file test_courier_flow.cpp
- * @brief Integration tests for Courier flow (4d): job claim, double-claim rejection, pickup, delivery, dynamic earnings config.
+ * @brief Integration tests for Courier flow (4d): job claim, double-claim rejection, pickup, delivery, dynamic earnings
+ * config.
  * @layer Tests / Integration (C++ / Qt Test)
  */
 
@@ -9,27 +10,21 @@
 #include "../../api/networkmanager.h"
 #include "../tools/mockapiserver.h"
 
-class TestCourierFlow : public QObject
-{
+class TestCourierFlow : public QObject {
     Q_OBJECT
 
 private:
     MockApiServer m_server;
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         QVERIFY(m_server.start());
         NetworkManager::instance()->setBaseUrl(m_server.url());
     }
 
-    void cleanupTestCase()
-    {
-        m_server.stop();
-    }
+    void cleanupTestCase() { m_server.stop(); }
 
-    void testJobClaimAndDoubleClaimPrevention()
-    {
+    void testJobClaimAndDoubleClaimPrevention() {
         // 1. Post a new order
         QJsonObject order;
         order["_id"] = "order_courier_claim_1";
@@ -42,19 +37,20 @@ private slots:
         // First courier claims order
         bool firstClaimSuccess = false;
         NetworkManager::instance()->patch("/api/admin/orders/order_courier_claim_1/assign",
-            QJsonObject{{"delivery_boy_id", "rider_1"}},
-            [&firstClaimSuccess](bool ok, const QJsonDocument &doc, const QString &err) {
-                Q_UNUSED(doc); Q_UNUSED(err);
-                firstClaimSuccess = ok;
-            });
+                                          QJsonObject{{"delivery_boy_id", "rider_1"}},
+                                          [&firstClaimSuccess](bool ok, const QJsonDocument &doc, const QString &err) {
+                                              Q_UNUSED(doc);
+                                              Q_UNUSED(err);
+                                              firstClaimSuccess = ok;
+                                          });
 
         QTRY_VERIFY(firstClaimSuccess);
 
         // Second courier tries to claim SAME order -> MUST fail with 409 Conflict!
         bool secondClaimSuccess = true;
         QString conflictError;
-        NetworkManager::instance()->patch("/api/admin/orders/order_courier_claim_1/assign",
-            QJsonObject{{"delivery_boy_id", "rider_2"}},
+        NetworkManager::instance()->patch(
+            "/api/admin/orders/order_courier_claim_1/assign", QJsonObject{{"delivery_boy_id", "rider_2"}},
             [&secondClaimSuccess, &conflictError](bool ok, const QJsonDocument &doc, const QString &err) {
                 Q_UNUSED(doc);
                 secondClaimSuccess = ok;
@@ -64,20 +60,21 @@ private slots:
         QTRY_VERIFY(!secondClaimSuccess);
     }
 
-    void testDynamicEarningsServerConfig()
-    {
+    void testDynamicEarningsServerConfig() {
         bool configReceived = false;
         double baseFee = 0.0;
         double perKmRate = 0.0;
 
-        NetworkManager::instance()->get("/api/config/delivery", [&configReceived, &baseFee, &perKmRate](bool ok, const QJsonDocument &doc, const QString &err) {
-            Q_UNUSED(err);
-            if (ok && doc.isObject()) {
-                configReceived = true;
-                baseFee = doc.object().value("baseFee").toDouble();
-                perKmRate = doc.object().value("perKmRate").toDouble();
-            }
-        });
+        NetworkManager::instance()->get(
+            "/api/config/delivery",
+            [&configReceived, &baseFee, &perKmRate](bool ok, const QJsonDocument &doc, const QString &err) {
+                Q_UNUSED(err);
+                if (ok && doc.isObject()) {
+                    configReceived = true;
+                    baseFee = doc.object().value("baseFee").toDouble();
+                    perKmRate = doc.object().value("perKmRate").toDouble();
+                }
+            });
 
         QTRY_VERIFY(configReceived);
         QCOMPARE(baseFee, 40.0);

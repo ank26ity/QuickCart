@@ -38,8 +38,7 @@ struct CartEntry {
     double price() const { return pricePaise / 100.0; }
 };
 
-class CartManager : public QObject
-{
+class CartManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(int itemCount READ itemCount NOTIFY cartChanged)
     Q_PROPERTY(double subtotal READ subtotal NOTIFY cartChanged)
@@ -56,7 +55,7 @@ class CartManager : public QObject
 
 public:
     explicit CartManager(QObject *parent = nullptr);
-    static CartManager* instance();
+    static CartManager *instance();
 
     int itemCount() const;
     double subtotal() const;

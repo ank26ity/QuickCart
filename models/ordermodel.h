@@ -46,8 +46,7 @@ struct OrderRecordData {
     QVariantList items;
 };
 
-class OrderModel : public QAbstractListModel
-{
+class OrderModel : public QAbstractListModel {
     Q_OBJECT
     Q_PROPERTY(bool isLoading READ isLoading NOTIFY loadingChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
@@ -81,7 +80,8 @@ public:
     QString errorMessage() const;
 
     Q_INVOKABLE void fetchOrders(bool isOnlineRider = true);
-    Q_INVOKABLE void updateOrderStatus(const QString &orderId, const QString &nextStatus, const QString &actorRole = "merchant");
+    Q_INVOKABLE void updateOrderStatus(const QString &orderId, const QString &nextStatus,
+                                       const QString &actorRole = "merchant");
     Q_INVOKABLE void assignRiderToOrder(const QString &orderId, const QString &riderId);
     Q_INVOKABLE QVariantMap getOrderAt(int index) const;
 

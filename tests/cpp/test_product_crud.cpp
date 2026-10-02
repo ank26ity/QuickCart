@@ -9,13 +9,11 @@
 #include <QtCore/QJsonArray>
 #include "../../models/productmodel.h"
 
-class TestProductCrud : public QObject
-{
+class TestProductCrud : public QObject {
     Q_OBJECT
 
 private slots:
-    void testProductCreationAndListing()
-    {
+    void testProductCreationAndListing() {
         ProductModel model;
         QCOMPARE(model.count(), 0);
 
@@ -42,8 +40,7 @@ private slots:
         QCOMPARE(item[QStringLiteral("quantity")].toInt(), 25);
     }
 
-    void testProductUpdate()
-    {
+    void testProductUpdate() {
         ProductModel model;
         QJsonObject p1;
         p1[QStringLiteral("id")] = QStringLiteral("p2");
@@ -71,8 +68,7 @@ private slots:
         QCOMPARE(model.data(idx, ProductModel::IsOutOfStockRole).toBool(), false);
     }
 
-    void testProductDeletion()
-    {
+    void testProductDeletion() {
         ProductModel model;
         QJsonObject p1;
         p1[QStringLiteral("id")] = QStringLiteral("p3");
@@ -93,8 +89,7 @@ private slots:
         QVERIFY(!model.deleteProduct(QStringLiteral("p3")));
     }
 
-    void testPopulateFromJson()
-    {
+    void testPopulateFromJson() {
         ProductModel model;
         QJsonArray arr;
 

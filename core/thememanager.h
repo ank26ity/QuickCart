@@ -19,8 +19,7 @@
 #include <QtQml/QJSEngine>
 
 // ── 2. Class Declaration ───────────────────────────────────────────────────
-class ThemeManager : public QObject
-{
+class ThemeManager : public QObject {
     Q_OBJECT
     QML_ELEMENT
     QML_SINGLETON
@@ -32,22 +31,17 @@ class ThemeManager : public QObject
     Q_PROPERTY(bool reducedMotion READ reducedMotion NOTIFY reducedMotionChanged)
 
 public:
-    enum class ThemeMode {
-        Light,
-        Dark,
-        System
-    };
+    enum class ThemeMode { Light, Dark, System };
     Q_ENUM(ThemeMode)
 
     // ── 4. Public API ──────────────────────────────────────────────────────
     explicit ThemeManager(QObject *parent = nullptr);
-    static ThemeManager* instance();
+    static ThemeManager *instance();
 
     /**
      * Factory function for Qt QML singleton registration
      */
-    static ThemeManager* create(QQmlEngine *qmlEngine, QJSEngine *jsEngine)
-    {
+    static ThemeManager *create(QQmlEngine *qmlEngine, QJSEngine *jsEngine) {
         Q_UNUSED(qmlEngine);
         Q_UNUSED(jsEngine);
         return instance();

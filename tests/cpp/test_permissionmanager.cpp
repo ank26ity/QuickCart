@@ -7,23 +7,15 @@
 #include <QtTest/QtTest>
 #include "../../security/permissionmanager.h"
 
-class TestPermissionManager : public QObject
-{
+class TestPermissionManager : public QObject {
     Q_OBJECT
 
 private slots:
-    void init()
-    {
-        PermissionManager::instance()->resetForTesting();
-    }
+    void init() { PermissionManager::instance()->resetForTesting(); }
 
-    void cleanup()
-    {
-        PermissionManager::instance()->resetForTesting();
-    }
+    void cleanup() { PermissionManager::instance()->resetForTesting(); }
 
-    void testDefaultGuestState()
-    {
+    void testDefaultGuestState() {
         PermissionManager *pm = PermissionManager::instance();
         QCOMPARE(pm->currentRole(), QStringLiteral("guest"));
         QVERIFY(pm->hasPermission(QStringLiteral("Catalog:Browse")));
@@ -32,8 +24,7 @@ private slots:
         QVERIFY(!pm->hasPermission(QStringLiteral("Admin:Dashboard")));
     }
 
-    void testCustomerRole()
-    {
+    void testCustomerRole() {
         PermissionManager *pm = PermissionManager::instance();
         pm->setCurrentRole(QStringLiteral("customer"));
 
@@ -47,8 +38,7 @@ private slots:
         QVERIFY(!pm->hasPermission(QStringLiteral("Admin:ManageUsers")));
     }
 
-    void testMerchantRole()
-    {
+    void testMerchantRole() {
         PermissionManager *pm = PermissionManager::instance();
         pm->setCurrentRole(QStringLiteral("shopkeeper"));
 
@@ -61,8 +51,7 @@ private slots:
         QVERIFY(!pm->hasPermission(QStringLiteral("Delivery:ToggleDuty")));
     }
 
-    void testCourierRole()
-    {
+    void testCourierRole() {
         PermissionManager *pm = PermissionManager::instance();
         pm->setCurrentRole(QStringLiteral("delivery"));
 
@@ -75,8 +64,7 @@ private slots:
         QVERIFY(!pm->hasPermission(QStringLiteral("Inventory:AddProduct")));
     }
 
-    void testAdminRole()
-    {
+    void testAdminRole() {
         PermissionManager *pm = PermissionManager::instance();
         pm->setCurrentRole(QStringLiteral("admin"));
 
@@ -87,8 +75,7 @@ private slots:
         QVERIFY(pm->hasPermission(QStringLiteral("Order:CancelAny")));
     }
 
-    void testNavigationGuards()
-    {
+    void testNavigationGuards() {
         PermissionManager *pm = PermissionManager::instance();
 
         // Customer
@@ -107,8 +94,7 @@ private slots:
         QVERIFY(pm->canNavigateTo(QStringLiteral("views/AdminView.qml")));
     }
 
-    void testShopManagementGuards()
-    {
+    void testShopManagementGuards() {
         PermissionManager *pm = PermissionManager::instance();
         pm->setCurrentRole(QStringLiteral("shopkeeper"));
         pm->setCurrentShopId(QStringLiteral("shop_123"));
@@ -123,8 +109,7 @@ private slots:
         QVERIFY(pm->canManageShop(QStringLiteral("shop_999")));
     }
 
-    void testOrderUpdateGuards()
-    {
+    void testOrderUpdateGuards() {
         PermissionManager *pm = PermissionManager::instance();
 
         // Customer can update their own order

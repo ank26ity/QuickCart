@@ -34,3 +34,15 @@ leak:dbus_bus_get_private
 leak:_dl_init
 leak:_dl_catch_exception
 leak:call_init
+
+# 6. Qt Framework internal runtime / event loop / network driver allocations
+leak:libQt6Network
+leak:libQt6Core
+leak:libQt6Gui
+leak:libQt6Qml
+leak:libQt6Quick
+leak:QNetworkAccessManager
+leak:QNetworkRequest
+leak:QObject::connect
+leak:QtSharedPointer
+

@@ -18,27 +18,21 @@
 using Status = OrderStateMachine::OrderStatus;
 using Actor = OrderStateMachine::OrderActor;
 
-class TestAdminFlow : public QObject
-{
+class TestAdminFlow : public QObject {
     Q_OBJECT
 
 private:
     MockApiServer m_server;
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         QVERIFY(m_server.start());
         NetworkManager::instance()->setBaseUrl(m_server.url());
     }
 
-    void cleanupTestCase()
-    {
-        m_server.stop();
-    }
+    void cleanupTestCase() { m_server.stop(); }
 
-    void testAdminRbacPermissions()
-    {
+    void testAdminRbacPermissions() {
         PermissionManager pm;
         pm.setCurrentRole(QStringLiteral("admin"));
 
@@ -53,27 +47,19 @@ private slots:
         QCOMPARE(pm.defaultViewForCurrentRole(), QStringLiteral("views/AdminView.qml"));
     }
 
-    void testAdminSuperuserOrderIntervention()
-    {
+    void testAdminSuperuserOrderIntervention() {
         // Admin can intervene in orders at any non-terminal stage
-        const QVector<Status> activeStates = {
-            Status::Pending,
-            Status::Accepted,
-            Status::Preparing,
-            Status::Ready,
-            Status::Assigned,
-            Status::PickedUp
-        };
+        const QVector<Status> activeStates = {Status::Pending, Status::Accepted, Status::Preparing,
+                                              Status::Ready,   Status::Assigned, Status::PickedUp};
 
         for (Status s : activeStates) {
             auto canCancel = OrderStateMachine::canTransition(s, Status::Cancelled, Actor::Admin);
-            QVERIFY2(canCancel.isSuccess(),
-                qPrintable(QString("Admin must be permitted to cancel order in state %1").arg(OrderStateMachine::statusToString(s))));
+            QVERIFY2(canCancel.isSuccess(), qPrintable(QString("Admin must be permitted to cancel order in state %1")
+                                                           .arg(OrderStateMachine::statusToString(s))));
         }
     }
 
-    void testAdminMetricsAggregation()
-    {
+    void testAdminMetricsAggregation() {
         ShopModel shopModel;
         QJsonArray shops;
         for (int i = 0; i < 5; ++i) {
@@ -107,54 +93,45 @@ private slots:
         QCOMPARE(actualGmv, expectedGmv);
     }
 
-    void testCourierDocumentApprovalFlow()
-    {
+    void testCourierDocumentApprovalFlow() {
         // 1. Approve courier document via admin endpoint
         QString courierId = QStringLiteral("user_courier_1");
         bool done = false;
         bool ok = false;
         QJsonObject resp;
 
-        NetworkManager::instance()->post(
-            QString("/api/admin/courier/%1/approve").arg(courierId),
-            QJsonObject(),
-            [&](bool success, const QJsonDocument &doc, const QString &) {
-                done = true;
-                ok = success;
-                resp = doc.object();
-            }
-        );
+        NetworkManager::instance()->post(QString("/api/admin/courier/%1/approve").arg(courierId), QJsonObject(),
+                                         [&](bool success, const QJsonDocument &doc, const QString &) {
+                                             done = true;
+                                             ok = success;
+                                             resp = doc.object();
+                                         });
 
         QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
         QVERIFY(ok);
         QCOMPARE(resp.value("status").toString(), QStringLiteral("approved"));
     }
 
-    void testUserAndShopSuspensionFlow()
-    {
+    void testUserAndShopSuspensionFlow() {
         // 2. Suspend malicious user via admin endpoint
         QString badUserId = QStringLiteral("user_cust_1");
         bool done = false;
         bool ok = false;
         QJsonObject resp;
 
-        NetworkManager::instance()->post(
-            QString("/api/admin/users/%1/suspend").arg(badUserId),
-            QJsonObject(),
-            [&](bool success, const QJsonDocument &doc, const QString &) {
-                done = true;
-                ok = success;
-                resp = doc.object();
-            }
-        );
+        NetworkManager::instance()->post(QString("/api/admin/users/%1/suspend").arg(badUserId), QJsonObject(),
+                                         [&](bool success, const QJsonDocument &doc, const QString &) {
+                                             done = true;
+                                             ok = success;
+                                             resp = doc.object();
+                                         });
 
         QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
         QVERIFY(ok);
         QCOMPARE(resp.value("status").toString(), QStringLiteral("suspended"));
     }
 
-    void testManualDispatchFlow()
-    {
+    void testManualDispatchFlow() {
         // 3. Admin manually dispatches ready order to courier
         QString orderId = QStringLiteral("order_dispatch_101");
         QJsonObject order;
@@ -169,36 +146,30 @@ private slots:
         bool ok = false;
         QJsonObject resp;
 
-        NetworkManager::instance()->post(
-            QString("/api/admin/orders/%1/dispatch").arg(orderId),
-            req,
-            [&](bool success, const QJsonDocument &doc, const QString &) {
-                done = true;
-                ok = success;
-                resp = doc.object();
-            }
-        );
+        NetworkManager::instance()->post(QString("/api/admin/orders/%1/dispatch").arg(orderId), req,
+                                         [&](bool success, const QJsonDocument &doc, const QString &) {
+                                             done = true;
+                                             ok = success;
+                                             resp = doc.object();
+                                         });
 
         QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
         QVERIFY(ok);
         QCOMPARE(resp.value("status").toString(), QStringLiteral("assigned"));
     }
 
-    void testAuditLogVerification()
-    {
+    void testAuditLogVerification() {
         // 4. Verify admin actions generated audit logs
         bool done = false;
         bool ok = false;
         QJsonArray logs;
 
-        NetworkManager::instance()->get(
-            QStringLiteral("/api/admin/audit-logs"),
-            [&](bool success, const QJsonDocument &doc, const QString &) {
-                done = true;
-                ok = success;
-                logs = doc.array();
-            }
-        );
+        NetworkManager::instance()->get(QStringLiteral("/api/admin/audit-logs"),
+                                        [&](bool success, const QJsonDocument &doc, const QString &) {
+                                            done = true;
+                                            ok = success;
+                                            logs = doc.array();
+                                        });
 
         QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
         QVERIFY(ok);
@@ -210,9 +181,12 @@ private slots:
 
         for (const auto &v : logs) {
             QString action = v.toObject().value("action").toString();
-            if (action == QStringLiteral("courier_approved")) foundApproval = true;
-            if (action == QStringLiteral("user_suspended")) foundSuspension = true;
-            if (action == QStringLiteral("manual_dispatch")) foundDispatch = true;
+            if (action == QStringLiteral("courier_approved"))
+                foundApproval = true;
+            if (action == QStringLiteral("user_suspended"))
+                foundSuspension = true;
+            if (action == QStringLiteral("manual_dispatch"))
+                foundDispatch = true;
         }
 
         QVERIFY(foundApproval);
@@ -220,23 +194,19 @@ private slots:
         QVERIFY(foundDispatch);
     }
 
-    void testNonAdminAccessToAdminEndpointsReturns403()
-    {
+    void testNonAdminAccessToAdminEndpointsReturns403() {
         // 1. Customer token attempting admin approve endpoint -> 403 Forbidden
         SecureStorage::instance()->saveTokens(QStringLiteral("mock_jwt_customer_token"), QStringLiteral("refresh"));
 
         bool done = false;
         bool is403 = false;
-        NetworkManager::instance()->post(
-            QStringLiteral("/api/admin/courier/user_courier_1/approve"),
-            QJsonObject(),
-            [&](bool success, const QJsonDocument &, const QString &err) {
-                done = true;
-                if (!success && (err.contains("403") || err.contains("Forbidden"))) {
-                    is403 = true;
-                }
-            }
-        );
+        NetworkManager::instance()->post(QStringLiteral("/api/admin/courier/user_courier_1/approve"), QJsonObject(),
+                                         [&](bool success, const QJsonDocument &, const QString &err) {
+                                             done = true;
+                                             if (!success && (err.contains("403") || err.contains("Forbidden"))) {
+                                                 is403 = true;
+                                             }
+                                         });
         QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
         QVERIFY2(is403, "Customer token must be rejected with HTTP 403 on admin endpoints");
 
@@ -244,15 +214,13 @@ private slots:
         SecureStorage::instance()->saveTokens(QStringLiteral("mock_jwt_delivery_token"), QStringLiteral("refresh"));
         done = false;
         is403 = false;
-        NetworkManager::instance()->get(
-            QStringLiteral("/api/admin/audit-logs"),
-            [&](bool success, const QJsonDocument &, const QString &err) {
-                done = true;
-                if (!success && (err.contains("403") || err.contains("Forbidden"))) {
-                    is403 = true;
-                }
-            }
-        );
+        NetworkManager::instance()->get(QStringLiteral("/api/admin/audit-logs"),
+                                        [&](bool success, const QJsonDocument &, const QString &err) {
+                                            done = true;
+                                            if (!success && (err.contains("403") || err.contains("Forbidden"))) {
+                                                is403 = true;
+                                            }
+                                        });
         QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
         QVERIFY2(is403, "Courier token must be rejected with HTTP 403 on admin audit-logs endpoint");
 

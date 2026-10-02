@@ -10,19 +10,15 @@
 using Status = OrderStateMachine::OrderStatus;
 using Actor = OrderStateMachine::OrderActor;
 
-class TestOrderStateMachine : public QObject
-{
+class TestOrderStateMachine : public QObject {
     Q_OBJECT
 
 private slots:
-    void testSerialization()
-    {
+    void testSerialization() {
         // Status string round-trips
-        const QVector<Status> statuses = {
-            Status::Pending, Status::Accepted, Status::Preparing, Status::Ready,
-            Status::Assigned, Status::PickedUp, Status::Delivered, Status::Cancelled,
-            Status::Rejected, Status::Unknown
-        };
+        const QVector<Status> statuses = {Status::Pending,  Status::Accepted, Status::Preparing, Status::Ready,
+                                          Status::Assigned, Status::PickedUp, Status::Delivered, Status::Cancelled,
+                                          Status::Rejected, Status::Unknown};
         for (Status s : statuses) {
             QString str = OrderStateMachine::statusToString(s);
             QVERIFY(!str.isEmpty());
@@ -32,9 +28,8 @@ private slots:
         QCOMPARE(OrderStateMachine::statusFromString(QStringLiteral("nonexistent")), Status::Unknown);
 
         // Actor string round-trips
-        const QVector<Actor> actors = {
-            Actor::Customer, Actor::Merchant, Actor::Courier, Actor::Admin, Actor::System, Actor::Unknown
-        };
+        const QVector<Actor> actors = {Actor::Customer, Actor::Merchant, Actor::Courier,
+                                       Actor::Admin,    Actor::System,   Actor::Unknown};
         for (Actor a : actors) {
             QString str = OrderStateMachine::actorToString(a);
             QVERIFY(!str.isEmpty());
@@ -43,8 +38,7 @@ private slots:
         QCOMPARE(OrderStateMachine::actorFromString(QStringLiteral("invalid")), Actor::Unknown);
     }
 
-    void testAllowedMerchantFlow()
-    {
+    void testAllowedMerchantFlow() {
         // Pending -> Accepted (Merchant)
         auto r1 = OrderStateMachine::transition(Status::Pending, Status::Accepted, Actor::Merchant);
         QVERIFY(r1.isSuccess());
@@ -61,8 +55,7 @@ private slots:
         QCOMPARE(r3.value(), Status::Ready);
     }
 
-    void testAllowedCourierFlow()
-    {
+    void testAllowedCourierFlow() {
         // Ready -> Assigned (Courier claim)
         auto r1 = OrderStateMachine::transition(Status::Ready, Status::Assigned, Actor::Courier);
         QVERIFY(r1.isSuccess());
@@ -77,8 +70,7 @@ private slots:
         QCOMPARE(r3.value(), Status::Delivered);
     }
 
-    void testCustomerCancellation()
-    {
+    void testCustomerCancellation() {
         // Customer can cancel Pending order
         auto r1 = OrderStateMachine::transition(Status::Pending, Status::Cancelled, Actor::Customer);
         QVERIFY(r1.isSuccess());
@@ -93,16 +85,14 @@ private slots:
         QVERIFY(r3.isError());
     }
 
-    void testMerchantRejection()
-    {
+    void testMerchantRejection() {
         // Merchant rejects pending order
         auto r1 = OrderStateMachine::transition(Status::Pending, Status::Rejected, Actor::Merchant);
         QVERIFY(r1.isSuccess());
         QCOMPARE(r1.value(), Status::Rejected);
     }
 
-    void testAdminSuperuserPrivileges()
-    {
+    void testAdminSuperuserPrivileges() {
         // Admin can cancel order at any active phase
         QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Cancelled, Actor::Admin).isSuccess());
         QVERIFY(OrderStateMachine::canTransition(Status::Accepted, Status::Cancelled, Actor::Admin).isSuccess());
@@ -112,8 +102,7 @@ private slots:
         QVERIFY(OrderStateMachine::canTransition(Status::PickedUp, Status::Cancelled, Actor::Admin).isSuccess());
     }
 
-    void testForbiddenActorTransitions()
-    {
+    void testForbiddenActorTransitions() {
         // Courier cannot accept orders
         auto r1 = OrderStateMachine::transition(Status::Pending, Status::Accepted, Actor::Courier);
         QVERIFY(r1.isError());
@@ -127,8 +116,7 @@ private slots:
         QVERIFY(r3.isError());
     }
 
-    void testTerminalStatesCannotTransition()
-    {
+    void testTerminalStatesCannotTransition() {
         // Delivered cannot transition anywhere
         QVERIFY(OrderStateMachine::isTerminalState(Status::Delivered));
         auto r1 = OrderStateMachine::transition(Status::Delivered, Status::Pending, Actor::Admin);
@@ -146,22 +134,21 @@ private slots:
         QVERIFY(r3.isError());
     }
 
-    void testNoopTransition()
-    {
+    void testNoopTransition() {
         // Transitioning to same state must fail with conflict
         auto res = OrderStateMachine::transition(Status::Pending, Status::Pending, Actor::Customer);
         QVERIFY(res.isError());
         QCOMPARE(res.error().category, ErrorCategory::Conflict);
     }
 
-    void testOrderCancellationLifecycle()
-    {
+    void testOrderCancellationLifecycle() {
         // Test explicit cancellation lifecycle matrix:
         // 1. Customer cancellation allowed in Pending
         QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Cancelled, Actor::Customer).isSuccess());
 
         // 2. Merchant cancellation allowed in Pending and Accepted
-        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Cancelled, Actor::Merchant).isError()); // Merchant uses Reject in pending
+        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Cancelled, Actor::Merchant)
+                    .isError()); // Merchant uses Reject in pending
         QVERIFY(OrderStateMachine::canTransition(Status::Accepted, Status::Cancelled, Actor::Merchant).isSuccess());
 
         // 3. Admin cancellation allowed across all non-terminal stages
@@ -174,8 +161,7 @@ private slots:
         QCOMPARE(r.error().category, ErrorCategory::Conflict);
     }
 
-    void testAllTransitionsAndBranchCoverage()
-    {
+    void testAllTransitionsAndBranchCoverage() {
         // 1. Unknown states validation
         auto rUnk1 = OrderStateMachine::canTransition(Status::Unknown, Status::Pending, Actor::Customer);
         QVERIFY(rUnk1.isError());
@@ -255,8 +241,7 @@ private slots:
         QCOMPARE(OrderStateMachine::actorFromString(QStringLiteral("admin")), Actor::Admin);
     }
 
-    void testMutationTestingEngine()
-    {
+    void testMutationTestingEngine() {
         // ── Mutation Testing on OrderStateMachine Transition Logic ──────────
         // Systematically introduces behavioral mutants across actors, states, and guards
         // and verifies that 100% of mutants are caught and killed by the state machine.
@@ -269,19 +254,25 @@ private slots:
         };
 
         const MutantSpec mutants[] = {
-            {"M1: Customer bypassing merchant to accept pending order", Status::Pending, Status::Accepted, Actor::Customer, true},
+            {"M1: Customer bypassing merchant to accept pending order", Status::Pending, Status::Accepted,
+             Actor::Customer, true},
             {"M2: Customer attempting to mark order ready", Status::Preparing, Status::Ready, Actor::Customer, true},
             {"M3: Courier attempting to accept pending order", Status::Pending, Status::Accepted, Actor::Courier, true},
             {"M4: Courier attempting to cancel ready order", Status::Ready, Status::Cancelled, Actor::Courier, true},
             {"M5: Merchant attempting to mark order picked up", Status::Ready, Status::PickedUp, Actor::Merchant, true},
-            {"M6: Customer illegal cross-state leap to delivered", Status::Pending, Status::Delivered, Actor::Customer, true},
-            {"M7: Admin illegal cross-state leap from pending to delivered", Status::Pending, Status::Delivered, Actor::Admin, true},
-            {"M8: Terminal state mutation: Delivered transitioning to Accepted", Status::Delivered, Status::Accepted, Actor::Admin, true},
-            {"M9: Terminal state mutation: Cancelled transitioning to Preparing", Status::Cancelled, Status::Preparing, Actor::Admin, true},
-            {"M10: Reverse state mutation: PickedUp reversing to Accepted", Status::PickedUp, Status::Accepted, Actor::Merchant, true},
-            {"M11: Reverse state mutation: Delivered reversing to Pending", Status::Delivered, Status::Pending, Actor::Customer, true},
-            {"M12: Unknown Actor executing valid transition", Status::Pending, Status::Accepted, Actor::Unknown, true}
-        };
+            {"M6: Customer illegal cross-state leap to delivered", Status::Pending, Status::Delivered, Actor::Customer,
+             true},
+            {"M7: Admin illegal cross-state leap from pending to delivered", Status::Pending, Status::Delivered,
+             Actor::Admin, true},
+            {"M8: Terminal state mutation: Delivered transitioning to Accepted", Status::Delivered, Status::Accepted,
+             Actor::Admin, true},
+            {"M9: Terminal state mutation: Cancelled transitioning to Preparing", Status::Cancelled, Status::Preparing,
+             Actor::Admin, true},
+            {"M10: Reverse state mutation: PickedUp reversing to Accepted", Status::PickedUp, Status::Accepted,
+             Actor::Merchant, true},
+            {"M11: Reverse state mutation: Delivered reversing to Pending", Status::Delivered, Status::Pending,
+             Actor::Customer, true},
+            {"M12: Unknown Actor executing valid transition", Status::Pending, Status::Accepted, Actor::Unknown, true}};
 
         int totalMutants = sizeof(mutants) / sizeof(mutants[0]);
         int killedMutants = 0;
@@ -297,8 +288,7 @@ private slots:
 
             if (mutantKilled) {
                 killedMutants++;
-                printf("  [KILLED] %s -> Error: %s\n", m.description,
-                       result.error().errorCode.toLatin1().constData());
+                printf("  [KILLED] %s -> Error: %s\n", m.description, result.error().errorCode.toLatin1().constData());
             } else {
                 printf("  [SURVIVED] %s -> FAILED TO CATCH!\n", m.description);
             }

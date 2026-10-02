@@ -17,8 +17,7 @@ struct ProductItemData {
     QString image;
 };
 
-class ProductModel : public QAbstractListModel
-{
+class ProductModel : public QAbstractListModel {
     Q_OBJECT
     Q_PROPERTY(bool isLoading READ isLoading NOTIFY loadingChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)

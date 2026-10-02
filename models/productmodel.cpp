@@ -5,39 +5,44 @@
 #include <QtCore/QPointer>
 #include <QtConcurrent/QtConcurrent>
 
-ProductModel::ProductModel(QObject *parent)
-    : QAbstractListModel(parent), m_isLoading(false)
-{
-}
+ProductModel::ProductModel(QObject *parent) : QAbstractListModel(parent), m_isLoading(false) {}
 
-int ProductModel::rowCount(const QModelIndex &parent) const
-{
-    if (parent.isValid()) return 0;
+int ProductModel::rowCount(const QModelIndex &parent) const {
+    if (parent.isValid())
+        return 0;
     return m_products.size();
 }
 
-QVariant ProductModel::data(const QModelIndex &index, int role) const
-{
+QVariant ProductModel::data(const QModelIndex &index, int role) const {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_products.size())
         return QVariant();
 
     const ProductItemData &p = m_products.at(index.row());
     switch (role) {
-    case IdRole: return p.id;
-    case ShopIdRole: return p.shopId;
-    case NameRole: return p.name;
-    case DescriptionRole: return p.description;
-    case PriceRole: return p.price;
-    case QuantityRole: return p.quantity;
-    case ImageRole: return p.image;
-    case IsLowStockRole: return (p.quantity > 0 && p.quantity <= 5);
-    case IsOutOfStockRole: return (p.quantity <= 0);
-    default: return QVariant();
+        case IdRole:
+            return p.id;
+        case ShopIdRole:
+            return p.shopId;
+        case NameRole:
+            return p.name;
+        case DescriptionRole:
+            return p.description;
+        case PriceRole:
+            return p.price;
+        case QuantityRole:
+            return p.quantity;
+        case ImageRole:
+            return p.image;
+        case IsLowStockRole:
+            return (p.quantity > 0 && p.quantity <= 5);
+        case IsOutOfStockRole:
+            return (p.quantity <= 0);
+        default:
+            return QVariant();
     }
 }
 
-QHash<int, QByteArray> ProductModel::roleNames() const
-{
+QHash<int, QByteArray> ProductModel::roleNames() const {
     QHash<int, QByteArray> roles;
     roles[IdRole] = "productId";
     roles[ShopIdRole] = "shopId";
@@ -51,19 +56,17 @@ QHash<int, QByteArray> ProductModel::roleNames() const
     return roles;
 }
 
-bool ProductModel::isLoading() const
-{
+bool ProductModel::isLoading() const {
     return m_isLoading;
 }
 
-int ProductModel::count() const
-{
+int ProductModel::count() const {
     return m_products.size();
 }
 
-void ProductModel::fetchProductsForShop(const QString &shopId)
-{
-    if (shopId.isEmpty()) return;
+void ProductModel::fetchProductsForShop(const QString &shopId) {
+    if (shopId.isEmpty())
+        return;
 
     m_isLoading = true;
     emit loadingChanged();
@@ -73,7 +76,8 @@ void ProductModel::fetchProductsForShop(const QString &shopId)
     QPointer<ProductModel> self(this);
     NetworkManager::instance()->get(endpoint, [self](bool success, const QJsonDocument &doc, const QString &err) {
         Q_UNUSED(err);
-        if (!self) return;
+        if (!self)
+            return;
         if (!success || !doc.isObject()) {
             self->beginResetModel();
             self->m_products.clear();
@@ -90,7 +94,8 @@ void ProductModel::fetchProductsForShop(const QString &shopId)
         QThreadPool::globalInstance()->start([self, itemsArr]() {
             QVector<ProductItemData> newProducts;
             for (const QJsonValue &val : itemsArr) {
-                if (!val.isObject()) continue;
+                if (!val.isObject())
+                    continue;
                 QJsonObject itemObj = val.toObject();
 
                 ProductItemData item;
@@ -100,14 +105,17 @@ void ProductModel::fetchProductsForShop(const QString &shopId)
                 item.description = itemObj.value("description").toString();
                 item.price = itemObj.value("price").toDouble(0.0);
                 item.quantity = itemObj.value("quantity").toInt(0);
-                item.image = itemObj.value("image").toString("https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=300");
+                item.image = itemObj.value("image").toString(
+                    "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=300");
 
                 newProducts.append(item);
             }
 
-            if (!self) return;
+            if (!self)
+                return;
             QMetaObject::invokeMethod(self.data(), [self, newProducts]() {
-                if (!self) return;
+                if (!self)
+                    return;
                 self->beginResetModel();
                 self->m_products = newProducts;
                 self->endResetModel();
@@ -119,11 +127,11 @@ void ProductModel::fetchProductsForShop(const QString &shopId)
     });
 }
 
-void ProductModel::populateFromJson(const QJsonArray &itemsArr)
-{
+void ProductModel::populateFromJson(const QJsonArray &itemsArr) {
     QVector<ProductItemData> newProducts;
     for (const QJsonValue &val : itemsArr) {
-        if (!val.isObject()) continue;
+        if (!val.isObject())
+            continue;
         QJsonObject itemObj = val.toObject();
 
         ProductItemData item;
@@ -133,7 +141,10 @@ void ProductModel::populateFromJson(const QJsonArray &itemsArr)
         item.description = itemObj.value(QStringLiteral("description")).toString();
         item.price = itemObj.value(QStringLiteral("price")).toDouble(0.0);
         item.quantity = itemObj.value(QStringLiteral("quantity")).toInt(0);
-        item.image = itemObj.value(QStringLiteral("image")).toString(QStringLiteral("https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=300"));
+        item.image =
+            itemObj.value(QStringLiteral("image"))
+                .toString(QStringLiteral(
+                    "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=300"));
 
         newProducts.append(item);
     }
@@ -146,16 +157,19 @@ void ProductModel::populateFromJson(const QJsonArray &itemsArr)
     emit countChanged();
 }
 
-bool ProductModel::addProduct(const QJsonObject &productData)
-{
+bool ProductModel::addProduct(const QJsonObject &productData) {
     ProductItemData item;
-    item.id = productData.value(QStringLiteral("_id")).toString(productData.value(QStringLiteral("id")).toString(QStringLiteral("prod_") + QString::number(m_products.size() + 1)));
+    item.id = productData.value(QStringLiteral("_id"))
+                  .toString(productData.value(QStringLiteral("id"))
+                                .toString(QStringLiteral("prod_") + QString::number(m_products.size() + 1)));
     item.shopId = productData.value(QStringLiteral("shop_id")).toString();
     item.name = productData.value(QStringLiteral("name")).toString();
     item.description = productData.value(QStringLiteral("description")).toString();
     item.price = productData.value(QStringLiteral("price")).toDouble(0.0);
     item.quantity = productData.value(QStringLiteral("quantity")).toInt(0);
-    item.image = productData.value(QStringLiteral("image")).toString(QStringLiteral("https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=300"));
+    item.image = productData.value(QStringLiteral("image"))
+                     .toString(QStringLiteral(
+                         "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=300"));
 
     beginInsertRows(QModelIndex(), m_products.size(), m_products.size());
     m_products.append(item);
@@ -166,8 +180,7 @@ bool ProductModel::addProduct(const QJsonObject &productData)
     return true;
 }
 
-bool ProductModel::updateProduct(const QString &productId, const QJsonObject &productData)
-{
+bool ProductModel::updateProduct(const QString &productId, const QJsonObject &productData) {
     for (int i = 0; i < m_products.size(); ++i) {
         if (m_products[i].id == productId) {
             if (productData.contains(QStringLiteral("name")))
@@ -189,8 +202,7 @@ bool ProductModel::updateProduct(const QString &productId, const QJsonObject &pr
     return false;
 }
 
-bool ProductModel::deleteProduct(const QString &productId)
-{
+bool ProductModel::deleteProduct(const QString &productId) {
     for (int i = 0; i < m_products.size(); ++i) {
         if (m_products[i].id == productId) {
             beginRemoveRows(QModelIndex(), i, i);
@@ -204,9 +216,9 @@ bool ProductModel::deleteProduct(const QString &productId)
     return false;
 }
 
-QVariantMap ProductModel::getProductAt(int index) const
-{
-    if (index < 0 || index >= m_products.size()) return QVariantMap();
+QVariantMap ProductModel::getProductAt(int index) const {
+    if (index < 0 || index >= m_products.size())
+        return QVariantMap();
     const ProductItemData &p = m_products.at(index);
     QVariantMap map;
     map["id"] = p.id;
@@ -218,4 +230,3 @@ QVariantMap ProductModel::getProductAt(int index) const
     map["image"] = p.image;
     return map;
 }
-

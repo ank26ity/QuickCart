@@ -18,22 +18,18 @@
 
 static CartManager *s_cartManagerInstance = nullptr;
 
-CartManager::CartManager(QObject *parent)
-    : QObject(parent), m_isSubmitting(false)
-{
+CartManager::CartManager(QObject *parent) : QObject(parent), m_isSubmitting(false) {
     s_cartManagerInstance = this;
 }
 
-CartManager* CartManager::instance()
-{
+CartManager *CartManager::instance() {
     if (!s_cartManagerInstance) {
         new CartManager(qApp);
     }
     return s_cartManagerInstance;
 }
 
-int CartManager::itemCount() const
-{
+int CartManager::itemCount() const {
     int count = 0;
     for (const CartEntry &entry : m_cart) {
         count += entry.quantity;
@@ -41,9 +37,9 @@ int CartManager::itemCount() const
     return count;
 }
 
-qint64 CartManager::subtotalPaise() const
-{
-    if (m_hasServerCalculation) return m_serverSubtotalPaise;
+qint64 CartManager::subtotalPaise() const {
+    if (m_hasServerCalculation)
+        return m_serverSubtotalPaise;
     qint64 sum = 0;
     for (const CartEntry &entry : m_cart) {
         sum += (entry.pricePaise * entry.quantity);
@@ -51,54 +47,48 @@ qint64 CartManager::subtotalPaise() const
     return sum;
 }
 
-qint64 CartManager::deliveryFeePaise() const
-{
-    if (m_cart.isEmpty()) return 0;
-    if (m_hasServerCalculation) return m_serverDeliveryFeePaise;
+qint64 CartManager::deliveryFeePaise() const {
+    if (m_cart.isEmpty())
+        return 0;
+    if (m_hasServerCalculation)
+        return m_serverDeliveryFeePaise;
     return AppConfig::instance()->calculateDeliveryFeePaise(m_deliveryDistanceKm, subtotalPaise());
 }
 
-qint64 CartManager::totalPaise() const
-{
-    if (m_hasServerCalculation) return m_serverTotalPaise;
+qint64 CartManager::totalPaise() const {
+    if (m_hasServerCalculation)
+        return m_serverTotalPaise;
     return subtotalPaise() + deliveryFeePaise();
 }
 
-double CartManager::subtotal() const
-{
+double CartManager::subtotal() const {
     return subtotalPaise() / 100.0;
 }
 
-double CartManager::deliveryFee() const
-{
+double CartManager::deliveryFee() const {
     return deliveryFeePaise() / 100.0;
 }
 
-double CartManager::total() const
-{
+double CartManager::total() const {
     return totalPaise() / 100.0;
 }
 
-double CartManager::deliveryDistanceKm() const
-{
+double CartManager::deliveryDistanceKm() const {
     return m_deliveryDistanceKm;
 }
 
-void CartManager::setDeliveryDistanceKm(double km)
-{
+void CartManager::setDeliveryDistanceKm(double km) {
     if (!qFuzzyCompare(m_deliveryDistanceKm, km)) {
         m_deliveryDistanceKm = km;
         emit cartChanged();
     }
 }
 
-QString CartManager::shopId() const
-{
+QString CartManager::shopId() const {
     return m_cart.isEmpty() ? QString() : m_cart.first().shopId;
 }
 
-QVariantList CartManager::items() const
-{
+QVariantList CartManager::items() const {
     QVariantList list;
     for (const CartEntry &entry : m_cart) {
         QVariantMap map;
@@ -117,18 +107,15 @@ QVariantList CartManager::items() const
     return list;
 }
 
-bool CartManager::isSubmitting() const
-{
+bool CartManager::isSubmitting() const {
     return m_isSubmitting;
 }
 
-QString CartManager::errorMessage() const
-{
+QString CartManager::errorMessage() const {
     return m_errorMessage;
 }
 
-bool CartManager::addItem(const QVariantMap &product, int maxStock)
-{
+bool CartManager::addItem(const QVariantMap &product, int maxStock) {
     QString pId = product.value(QStringLiteral("id")).toString();
     QString pShopId = product.value(QStringLiteral("shopId")).toString();
 
@@ -174,7 +161,8 @@ bool CartManager::addItem(const QVariantMap &product, int maxStock)
         if (product.contains(QStringLiteral("pricePaise"))) {
             entry.pricePaise = product.value(QStringLiteral("pricePaise")).toLongLong();
         } else {
-            entry.pricePaise = static_cast<qint64>(std::round(product.value(QStringLiteral("price")).toDouble() * 100.0));
+            entry.pricePaise =
+                static_cast<qint64>(std::round(product.value(QStringLiteral("price")).toDouble() * 100.0));
         }
         entry.quantity = 1;
         entry.maxStock = maxStock;
@@ -188,13 +176,13 @@ bool CartManager::addItem(const QVariantMap &product, int maxStock)
     return true;
 }
 
-void CartManager::updateQuantity(const QString &productId, int change)
-{
+void CartManager::updateQuantity(const QString &productId, int change) {
     for (int i = 0; i < m_cart.size(); ++i) {
         if (m_cart[i].productId == productId) {
             if (change > 0) {
                 if (m_cart[i].quantity >= m_cart[i].maxStock) {
-                    m_errorMessage = QString(QStringLiteral("Only %1 units available in store stock.")).arg(m_cart[i].maxStock);
+                    m_errorMessage =
+                        QString(QStringLiteral("Only %1 units available in store stock.")).arg(m_cart[i].maxStock);
                     emit errorChanged();
                     return;
                 }
@@ -213,16 +201,14 @@ void CartManager::updateQuantity(const QString &productId, int change)
     }
 }
 
-void CartManager::clearCart()
-{
+void CartManager::clearCart() {
     m_cart.clear();
     m_errorMessage.clear();
     emit errorChanged();
     emit cartChanged();
 }
 
-void CartManager::placeOrder(const QString &address)
-{
+void CartManager::placeOrder(const QString &address) {
     if (m_cart.isEmpty()) {
         m_errorMessage = QStringLiteral("Cart is empty.");
         emit errorChanged();
@@ -263,29 +249,29 @@ void CartManager::placeOrder(const QString &address)
     }
     payload[QStringLiteral("items")] = itemsArr;
 
-    NetworkManager::instance()->post(QStringLiteral("/api/orders"), payload, [this](bool success, const QJsonDocument &doc, const QString &err) {
-        m_isSubmitting = false;
-        emit submittingChanged();
+    NetworkManager::instance()->post(
+        QStringLiteral("/api/orders"), payload, [this](bool success, const QJsonDocument &doc, const QString &err) {
+            m_isSubmitting = false;
+            emit submittingChanged();
 
-        if (!success) {
-            m_errorMessage = err.isEmpty() ? QStringLiteral("Failed to place order.") : err;
-            emit errorChanged();
-            return;
-        }
+            if (!success) {
+                m_errorMessage = err.isEmpty() ? QStringLiteral("Failed to place order.") : err;
+                emit errorChanged();
+                return;
+            }
 
-        QString createdOrderId;
-        if (doc.isObject()) {
-            QJsonObject obj = doc.object();
-            createdOrderId = obj.value(QStringLiteral("_id")).toString(obj.value(QStringLiteral("id")).toString());
-        }
+            QString createdOrderId;
+            if (doc.isObject()) {
+                QJsonObject obj = doc.object();
+                createdOrderId = obj.value(QStringLiteral("_id")).toString(obj.value(QStringLiteral("id")).toString());
+            }
 
-        clearCart();
-        emit orderPlacedSuccess(createdOrderId);
-    });
+            clearCart();
+            emit orderPlacedSuccess(createdOrderId);
+        });
 }
 
-void CartManager::resetForTesting()
-{
+void CartManager::resetForTesting() {
     m_cart.clear();
     m_isSubmitting = false;
     m_errorMessage.clear();
@@ -298,8 +284,7 @@ void CartManager::resetForTesting()
     emit errorChanged();
 }
 
-void CartManager::syncServerCalculation()
-{
+void CartManager::syncServerCalculation() {
     if (m_cart.isEmpty()) {
         m_hasServerCalculation = false;
         m_serverSubtotalPaise = 0;
@@ -321,15 +306,19 @@ void CartManager::syncServerCalculation()
     }
     req[QStringLiteral("items")] = itemsArr;
 
-    NetworkManager::instance()->post(QStringLiteral("/api/cart/calculate"), req, [this](bool success, const QJsonDocument &doc, const QString &) {
-        if (success && doc.isObject()) {
-            QJsonObject obj = doc.object();
-            m_serverSubtotalPaise = static_cast<qint64>(obj.value(QStringLiteral("subtotalPaise")).toVariant().toLongLong());
-            m_serverDeliveryFeePaise = static_cast<qint64>(obj.value(QStringLiteral("deliveryFeePaise")).toVariant().toLongLong());
-            m_serverTotalPaise = static_cast<qint64>(obj.value(QStringLiteral("totalPaise")).toVariant().toLongLong());
-            m_hasServerCalculation = true;
-            emit cartChanged();
-            emit serverCalculated();
-        }
-    });
+    NetworkManager::instance()->post(
+        QStringLiteral("/api/cart/calculate"), req, [this](bool success, const QJsonDocument &doc, const QString &) {
+            if (success && doc.isObject()) {
+                QJsonObject obj = doc.object();
+                m_serverSubtotalPaise =
+                    static_cast<qint64>(obj.value(QStringLiteral("subtotalPaise")).toVariant().toLongLong());
+                m_serverDeliveryFeePaise =
+                    static_cast<qint64>(obj.value(QStringLiteral("deliveryFeePaise")).toVariant().toLongLong());
+                m_serverTotalPaise =
+                    static_cast<qint64>(obj.value(QStringLiteral("totalPaise")).toVariant().toLongLong());
+                m_hasServerCalculation = true;
+                emit cartChanged();
+                emit serverCalculated();
+            }
+        });
 }

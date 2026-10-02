@@ -9,46 +9,41 @@
 #include "../../api/circuitbreaker.h"
 #include "../tools/mockapiserver.h"
 
-class TestNetworkResilience : public QObject
-{
+class TestNetworkResilience : public QObject {
     Q_OBJECT
 
 private:
     MockApiServer m_server;
 
 private slots:
-    void initTestCase()
-    {
+    void initTestCase() {
         QVERIFY(m_server.start());
         NetworkManager::instance()->setBaseUrl(m_server.url());
     }
 
-    void cleanupTestCase()
-    {
-        m_server.stop();
-    }
+    void cleanupTestCase() { m_server.stop(); }
 
-    void testTransientFailureRetrySuccess()
-    {
+    void testTransientFailureRetrySuccess() {
         // Simulate 1 transient 503 error, next request succeeds
         m_server.setFailNextRequests(1, 503);
 
         bool requestDone = false;
         bool wasSuccessful = false;
 
-        NetworkManager::instance()->get("/api/shops", [&requestDone, &wasSuccessful](bool ok, const QJsonDocument &doc, const QString &err) {
-            Q_UNUSED(doc); Q_UNUSED(err);
-            requestDone = true;
-            wasSuccessful = ok;
-        });
+        NetworkManager::instance()->get(
+            "/api/shops", [&requestDone, &wasSuccessful](bool ok, const QJsonDocument &doc, const QString &err) {
+                Q_UNUSED(doc);
+                Q_UNUSED(err);
+                requestDone = true;
+                wasSuccessful = ok;
+            });
 
         // NetworkManager handles transient 503 by automatically retrying with backoff
         QTRY_VERIFY_WITH_TIMEOUT(requestDone, 5000);
         QVERIFY(wasSuccessful);
     }
 
-    void testCircuitBreakerTripping()
-    {
+    void testCircuitBreakerTripping() {
         CircuitBreaker cb(3, 500); // 3 failures trips, 500ms recovery
 
         QString endpoint = "/api/fragile-service";

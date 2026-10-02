@@ -101,9 +101,8 @@ public:
      * @param maxRadiusKm Hyperlocal perimeter limit in km (default 3.0 km).
      * @return Result::ok(distanceKm) if within radius, Result::error() if beyond boundary.
      */
-    static Result<double> validateWithinDeliveryRadius(double userLat, double userLng,
-                                                      double shopLat, double shopLng,
-                                                      double maxRadiusKm = 3.0);
+    static Result<double> validateWithinDeliveryRadius(double userLat, double userLng, double shopLat, double shopLng,
+                                                       double maxRadiusKm = 3.0);
 
     /**
      * @brief Validate a numeric OTP verification code.
