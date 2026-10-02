@@ -97,7 +97,10 @@ set(PROJECT_SOURCES
     models/cartmanager.cpp
     models/ordermodel.h
     models/ordermodel.cpp
+    tests/tools/mockapiserver.h
+    tests/tools/mockapiserver.cpp
 )
+
 
 qt_add_executable(QuickCart ${PROJECT_SOURCES})
 set_target_properties(QuickCart PROPERTIES
@@ -165,7 +168,9 @@ target_include_directories(QuickCart PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/security
     ${CMAKE_CURRENT_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/models
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools
 )
+
 if(APPLE AND EXISTS "/opt/homebrew/include")
     target_include_directories(QuickCart PRIVATE /opt/homebrew/include)
 endif()

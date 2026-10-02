@@ -80,18 +80,20 @@ void MockApiServer::resetData()
     QJsonObject cust;
     cust["_id"] = "user_cust_1";
     cust["name"] = "Alice Customer";
-    cust["email"] = "alice@quickcart.com";
+    cust["email"] = "customer@quickcart.com";
     cust["phone"] = "+919876543210";
     cust["role"] = "customer";
+    m_users["customer@quickcart.com"] = cust;
     m_users["alice@quickcart.com"] = cust;
     m_users["+919876543210"] = cust;
 
     QJsonObject merch;
     merch["_id"] = "user_merch_1";
     merch["name"] = "Bob Merchant";
-    merch["email"] = "bob@quickcart.com";
+    merch["email"] = "merchant@quickcart.com";
     merch["role"] = "shopkeeper";
     merch["shopId"] = "shop_1";
+    m_users["merchant@quickcart.com"] = merch;
     m_users["bob@quickcart.com"] = merch;
 
     QJsonObject courier;
@@ -102,12 +104,19 @@ void MockApiServer::resetData()
     courier["complianceStatus"] = "not_submitted";
     m_users["charlie@quickcart.com"] = courier;
 
+    QJsonObject courierVerified = courier;
+    courierVerified["email"] = "courier@quickcart.com";
+    courierVerified["complianceStatus"] = "verified";
+    m_users["courier@quickcart.com"] = courierVerified;
+
+
     QJsonObject admin;
     admin["_id"] = "user_admin_1";
     admin["name"] = "Admin User";
     admin["email"] = "admin@quickcart.com";
     admin["role"] = "admin";
     m_users["admin@quickcart.com"] = admin;
+
 
     // Seed test shops
     QJsonObject shop1;

@@ -20,6 +20,7 @@
 #include "models/productmodel.h"
 #include "models/cartmanager.h"
 #include "models/ordermodel.h"
+#include "tests/tools/mockapiserver.h"
 
 int main(int argc, char *argv[])
 {
@@ -37,12 +38,26 @@ int main(int argc, char *argv[])
 
     QQuickStyle::setStyle("Basic");
 
+    // Start Embedded Mock API Server for standalone local runtime
+    MockApiServer mockServer;
+    if (mockServer.start()) {
+        qCInfo(qcNetwork) << "Embedded Mock API Server running on" << mockServer.url();
+    }
+
     // Foundation Singletons
     AppConfig appConfig;
+    if (mockServer.port() > 0) {
+        appConfig.setApiBaseUrl(mockServer.url());
+    }
+
     ThemeManager themeManager;
     SecureStorage secureStorage;
     PermissionManager permissionManager;
     NetworkManager networkManager;
+    if (mockServer.port() > 0) {
+        networkManager.setBaseUrl(mockServer.url());
+    }
+
     AuthService authService;
 
     // Domain Models
@@ -79,6 +94,21 @@ int main(int argc, char *argv[])
         Qt::QueuedConnection);
 
     engine.load(url);
+
+    // Synchronously inject dependencies into root QML Window
+    if (!engine.rootObjects().isEmpty()) {
+        QObject *rootWindow = engine.rootObjects().first();
+        rootWindow->setProperty("authService", QVariant::fromValue(&authService));
+        rootWindow->setProperty("shopModel", QVariant::fromValue(&shopModel));
+        rootWindow->setProperty("productModel", QVariant::fromValue(&productModel));
+        rootWindow->setProperty("cartManager", QVariant::fromValue(&cartManager));
+        rootWindow->setProperty("orderModel", QVariant::fromValue(&orderModel));
+        rootWindow->setProperty("networkManager", QVariant::fromValue(&networkManager));
+        rootWindow->setProperty("permissionManager", QVariant::fromValue(&permissionManager));
+        rootWindow->setProperty("appConfig", QVariant::fromValue(&appConfig));
+        rootWindow->setProperty("themeManager", QVariant::fromValue(&themeManager));
+        rootWindow->setProperty("secureStorage", QVariant::fromValue(&secureStorage));
+    }
 
     return app.exec();
 }

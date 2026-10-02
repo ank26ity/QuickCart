@@ -9,9 +9,14 @@ ApplicationWindow {
 
     property var authService: null
     property var shopModel: null
+    property var productModel: null
+    property var cartManager: null
+    property var orderModel: null
+    property var networkManager: null
     property var permissionManager: null
     property var appConfig: null
     property var themeManager: null
+    property var secureStorage: null
 
     visible: true
     width: 1200
@@ -25,6 +30,27 @@ ApplicationWindow {
 
     Component.onCompleted: {
         Theme.themeManager = window.themeManager
+        if (mainViewLoader.item) {
+            mainViewLoader.injectDependencies(mainViewLoader.item)
+        }
+    }
+
+    onAuthServiceChanged: {
+        if (mainViewLoader.item) {
+            mainViewLoader.injectDependencies(mainViewLoader.item)
+        }
+    }
+
+    onShopModelChanged: {
+        if (mainViewLoader.item) {
+            mainViewLoader.injectDependencies(mainViewLoader.item)
+        }
+    }
+
+    onPermissionManagerChanged: {
+        if (mainViewLoader.item) {
+            mainViewLoader.injectDependencies(mainViewLoader.item)
+        }
     }
 
     AppScaffold {
@@ -46,6 +72,17 @@ ApplicationWindow {
             id: mainViewLoader
             anchors.fill: parent
 
+            function injectDependencies(targetItem) {
+                if (!targetItem) return
+                if ("authService" in targetItem) targetItem.authService = window.authService
+                if ("shopModel" in targetItem) targetItem.shopModel = window.shopModel
+                if ("productModel" in targetItem) targetItem.productModel = window.productModel
+                if ("cartManager" in targetItem) targetItem.cartManager = window.cartManager
+                if ("orderModel" in targetItem) targetItem.orderModel = window.orderModel
+                if ("networkManager" in targetItem) targetItem.networkManager = window.networkManager
+                if ("permissionManager" in targetItem) targetItem.permissionManager = window.permissionManager
+            }
+
             source: {
                 if (!window.authService || !window.authService.isLoggedIn) {
                     return "views/AuthView.qml"
@@ -54,6 +91,10 @@ ApplicationWindow {
                     return window.permissionManager.defaultViewForCurrentRole()
                 }
                 return "views/AuthView.qml"
+            }
+
+            onLoaded: {
+                injectDependencies(item)
             }
         }
     }
