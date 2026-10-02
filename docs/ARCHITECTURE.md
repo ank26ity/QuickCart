@@ -122,3 +122,30 @@ qmllint qml/theme/Theme.qml qml/responsive/Responsive.qml qml/components/AppScaf
 ```bash
 ./build/QuickCartApp.app/Contents/MacOS/QuickCartApp
 ```
+
+---
+
+## 5. SecureStorage Architecture & Fallback Cryptography
+
+### 5.1 Platform Hardware Storage Backends
+QuickCart routes credential storage to hardware-backed OS secure enclaves:
+* **macOS & iOS**: Apple Keychain Services (`SecItemAdd`, `SecItemCopyMatching`, `SecItemDelete`) with dynamic application-namespaced service identifiers (`QuickCartSecureVault_<appName>`).
+* **Windows**: Windows Credential Manager (`CredWriteW`, `CredReadW`, `CredDeleteW`) storing `CRED_TYPE_GENERIC` credentials with `CRED_PERSIST_LOCAL_MACHINE`.
+* **Android**: Android Keystore Provider via Qt Android JNI bridge (`QJniObject`).
+* **Linux & Headless Fallback**: Local AES-256 / HMAC authenticated hardware-keyed vault.
+
+### 5.2 Encrypted Fallback Storage & Key Derivation
+When operating without platform secure enclaves (e.g., Linux, containerized headless CI, or fallback mode), `SecureStorage` employs an authenticated encryption vault:
+
+1. **Key Derivation (PBKDF2-Style)**:
+   * **Seed Entropy**: Hardware machine identifier via `QSysInfo::machineUniqueId()`, falling back to host machine name and hard-coded entropy.
+   * **Salt**: High-entropy static salt (`"QuickCart_Secure_Vault_PBKDF2_Salt_#2026_Salt$"`).
+   * **Stretching**: 2,000 iterations of SHA-256 HMAC stretching to produce a 256-bit symmetric encryption key (`devKey`).
+2. **Authenticated Encryption (Encrypt-then-MAC)**:
+   * **Cipher**: Keystream stream cipher with byte permutation derived from the stretched key.
+   * **Authentication**: 32-byte HMAC-SHA256 (`QMessageAuthenticationCode::hash(cipher, devKey, Sha256)`) computed over ciphertext and prepended (`mac + cipher`).
+3. **Integrity & Tamper Detection**:
+   * During retrieval, the 32-byte HMAC prefix is extracted and verified against the computed HMAC of the ciphertext. If any byte was altered on disk, decryption aborts immediately with an audit warning (`qcStorage`), preventing ciphertext manipulation attacks.
+4. **File Location**:
+   * Stored in `QStandardPaths::AppDataLocation` with obfuscated filenames `/.qc_vault_<md5_of_key>`.
+

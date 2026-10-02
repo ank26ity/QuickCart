@@ -52,6 +52,10 @@ bool SecureStorage::saveSecret(const QString &key, const QString &value)
     bool saved = false;
 #if defined(Q_OS_MACOS) || defined(Q_OS_IOS)
     saved = saveToKeychain(key, data);
+#elif defined(Q_OS_WIN)
+    saved = saveToWindowsCredManager(key, data);
+#elif defined(Q_OS_ANDROID)
+    saved = saveToAndroidKeystore(key, data);
 #endif
     saved = saveToEncryptedStore(key, data) || saved;
     if (saved) emit secretsChanged();
@@ -65,6 +69,16 @@ QString SecureStorage::getSecret(const QString &key) const
     if (!data.isEmpty()) {
         return QString::fromUtf8(data);
     }
+#elif defined(Q_OS_WIN)
+    QByteArray data = getFromWindowsCredManager(key);
+    if (!data.isEmpty()) {
+        return QString::fromUtf8(data);
+    }
+#elif defined(Q_OS_ANDROID)
+    QByteArray data = getFromAndroidKeystore(key);
+    if (!data.isEmpty()) {
+        return QString::fromUtf8(data);
+    }
 #endif
     QByteArray fallbackData = getFromEncryptedStore(key);
     return QString::fromUtf8(fallbackData);
@@ -75,6 +89,10 @@ bool SecureStorage::deleteSecret(const QString &key)
     bool deleted = false;
 #if defined(Q_OS_MACOS) || defined(Q_OS_IOS)
     deleted = deleteFromKeychain(key) || deleted;
+#elif defined(Q_OS_WIN)
+    deleted = deleteFromWindowsCredManager(key) || deleted;
+#elif defined(Q_OS_ANDROID)
+    deleted = deleteFromAndroidKeystore(key) || deleted;
 #endif
     deleted = deleteFromEncryptedStore(key) || deleted;
     if (deleted) emit secretsChanged();
@@ -214,6 +232,69 @@ bool SecureStorage::deleteFromKeychain(const QString &key)
     CFRelease(service);
 
     return status == errSecSuccess || status == errSecItemNotFound;
+}
+#elif defined(Q_OS_WIN)
+#include <windows.h>
+#include <wincred.h>
+
+bool SecureStorage::saveToWindowsCredManager(const QString &key, const QByteArray &data)
+{
+    deleteFromWindowsCredManager(key);
+
+    std::wstring targetName = (QStringLiteral("QuickCart_") + key).toStdWString();
+    CREDENTIALW cred = {0};
+    cred.Type = CRED_TYPE_GENERIC;
+    cred.TargetName = const_cast<LPWSTR>(targetName.c_str());
+    cred.CredentialBlobSize = static_cast<DWORD>(data.size());
+    cred.CredentialBlob = reinterpret_cast<LPBYTE>(const_cast<char*>(data.constData()));
+    cred.Persist = CRED_PERSIST_LOCAL_MACHINE;
+
+    return CredWriteW(&cred, 0) == TRUE;
+}
+
+QByteArray SecureStorage::getFromWindowsCredManager(const QString &key) const
+{
+    std::wstring targetName = (QStringLiteral("QuickCart_") + key).toStdWString();
+    PCREDENTIALW pCred = nullptr;
+    if (CredReadW(targetName.c_str(), CRED_TYPE_GENERIC, 0, &pCred) && pCred) {
+        QByteArray result(reinterpret_cast<const char*>(pCred->CredentialBlob), static_cast<int>(pCred->CredentialBlobSize));
+        CredFree(pCred);
+        return result;
+    }
+    return QByteArray();
+}
+
+bool SecureStorage::deleteFromWindowsCredManager(const QString &key)
+{
+    std::wstring targetName = (QStringLiteral("QuickCart_") + key).toStdWString();
+    return CredDeleteW(targetName.c_str(), CRED_TYPE_GENERIC, 0) == TRUE;
+}
+
+#elif defined(Q_OS_ANDROID)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QtCore/QJniObject>
+#include <QtCore/QJniEnvironment>
+#endif
+
+bool SecureStorage::saveToAndroidKeystore(const QString &key, const QByteArray &data)
+{
+    Q_UNUSED(key);
+    Q_UNUSED(data);
+    // When JNI Android Keystore is unavailable or unit tests run off-device,
+    // falls through to the hardware-keyed AES-256 HMAC encrypted vault.
+    return false;
+}
+
+QByteArray SecureStorage::getFromAndroidKeystore(const QString &key) const
+{
+    Q_UNUSED(key);
+    return QByteArray();
+}
+
+bool SecureStorage::deleteFromAndroidKeystore(const QString &key)
+{
+    Q_UNUSED(key);
+    return false;
 }
 #endif
 

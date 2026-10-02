@@ -31,10 +31,11 @@ struct CartEntry {
     QString productId;
     QString shopId;
     QString name;
-    double price{0.0};
+    qint64 pricePaise{0};
     int quantity{0};
     int maxStock{0};
     QString image;
+    double price() const { return pricePaise / 100.0; }
 };
 
 class CartManager : public QObject
@@ -44,6 +45,10 @@ class CartManager : public QObject
     Q_PROPERTY(double subtotal READ subtotal NOTIFY cartChanged)
     Q_PROPERTY(double deliveryFee READ deliveryFee NOTIFY cartChanged)
     Q_PROPERTY(double total READ total NOTIFY cartChanged)
+    Q_PROPERTY(qint64 subtotalPaise READ subtotalPaise NOTIFY cartChanged)
+    Q_PROPERTY(qint64 deliveryFeePaise READ deliveryFeePaise NOTIFY cartChanged)
+    Q_PROPERTY(qint64 totalPaise READ totalPaise NOTIFY cartChanged)
+    Q_PROPERTY(double deliveryDistanceKm READ deliveryDistanceKm WRITE setDeliveryDistanceKm NOTIFY cartChanged)
     Q_PROPERTY(QString shopId READ shopId NOTIFY cartChanged)
     Q_PROPERTY(QVariantList items READ items NOTIFY cartChanged)
     Q_PROPERTY(bool isSubmitting READ isSubmitting NOTIFY submittingChanged)
@@ -57,6 +62,14 @@ public:
     double subtotal() const;
     double deliveryFee() const;
     double total() const;
+
+    qint64 subtotalPaise() const;
+    qint64 deliveryFeePaise() const;
+    qint64 totalPaise() const;
+
+    double deliveryDistanceKm() const;
+    void setDeliveryDistanceKm(double km);
+
     QString shopId() const;
     QVariantList items() const;
     bool isSubmitting() const;
@@ -83,6 +96,7 @@ private:
     QVector<CartEntry> m_cart;
     bool m_isSubmitting{false};
     QString m_errorMessage;
+    double m_deliveryDistanceKm{1.5};
 };
 
 #endif // CARTMANAGER_H

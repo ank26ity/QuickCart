@@ -17,13 +17,30 @@ class TestOrderStateMachine : public QObject
 private slots:
     void testSerialization()
     {
-        QCOMPARE(OrderStateMachine::statusToString(Status::Pending), QStringLiteral("pending"));
-        QCOMPARE(OrderStateMachine::statusToString(Status::Delivered), QStringLiteral("delivered"));
-        QCOMPARE(OrderStateMachine::statusFromString(QStringLiteral("preparing")), Status::Preparing);
-        QCOMPARE(OrderStateMachine::statusFromString(QStringLiteral("picked_up")), Status::PickedUp);
+        // Status string round-trips
+        const QVector<Status> statuses = {
+            Status::Pending, Status::Accepted, Status::Preparing, Status::Ready,
+            Status::Assigned, Status::PickedUp, Status::Delivered, Status::Cancelled,
+            Status::Rejected, Status::Unknown
+        };
+        for (Status s : statuses) {
+            QString str = OrderStateMachine::statusToString(s);
+            QVERIFY(!str.isEmpty());
+            QCOMPARE(OrderStateMachine::statusFromString(str), s);
+        }
+        QCOMPARE(OrderStateMachine::statusFromString(QStringLiteral("canceled")), Status::Cancelled);
+        QCOMPARE(OrderStateMachine::statusFromString(QStringLiteral("nonexistent")), Status::Unknown);
 
-        QCOMPARE(OrderStateMachine::actorToString(Actor::Merchant), QStringLiteral("merchant"));
-        QCOMPARE(OrderStateMachine::actorFromString(QStringLiteral("courier")), Actor::Courier);
+        // Actor string round-trips
+        const QVector<Actor> actors = {
+            Actor::Customer, Actor::Merchant, Actor::Courier, Actor::Admin, Actor::System, Actor::Unknown
+        };
+        for (Actor a : actors) {
+            QString str = OrderStateMachine::actorToString(a);
+            QVERIFY(!str.isEmpty());
+            QCOMPARE(OrderStateMachine::actorFromString(str), a);
+        }
+        QCOMPARE(OrderStateMachine::actorFromString(QStringLiteral("invalid")), Actor::Unknown);
     }
 
     void testAllowedMerchantFlow()
@@ -135,6 +152,26 @@ private slots:
         auto res = OrderStateMachine::transition(Status::Pending, Status::Pending, Actor::Customer);
         QVERIFY(res.isError());
         QCOMPARE(res.error().category, ErrorCategory::Conflict);
+    }
+
+    void testOrderCancellationLifecycle()
+    {
+        // Test explicit cancellation lifecycle matrix:
+        // 1. Customer cancellation allowed in Pending
+        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Cancelled, Actor::Customer).isSuccess());
+
+        // 2. Merchant cancellation allowed in Pending and Accepted
+        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Cancelled, Actor::Merchant).isError()); // Merchant uses Reject in pending
+        QVERIFY(OrderStateMachine::canTransition(Status::Accepted, Status::Cancelled, Actor::Merchant).isSuccess());
+
+        // 3. Admin cancellation allowed across all non-terminal stages
+        QVERIFY(OrderStateMachine::canTransition(Status::Preparing, Status::Cancelled, Actor::Admin).isSuccess());
+
+        // 4. Cancelled is an absolute terminal state: rejects all subsequent transitions
+        QVERIFY(OrderStateMachine::isTerminalState(Status::Cancelled));
+        auto r = OrderStateMachine::transition(Status::Cancelled, Status::Pending, Actor::Admin);
+        QVERIFY(r.isError());
+        QCOMPARE(r.error().category, ErrorCategory::Conflict);
     }
 };
 

@@ -131,6 +131,11 @@ private slots:
         QCOMPARE(cart->deliveryFee(), 50.0);
         QCOMPARE(cart->total(), 170.0);
 
+        // Verify integer paise calculations
+        QCOMPARE(cart->subtotalPaise(), 12000LL);
+        QCOMPARE(cart->deliveryFeePaise(), 5000LL);
+        QCOMPARE(cart->totalPaise(), 17000LL);
+
         // Place order
         QSignalSpy orderPlacedSpy(cart, &CartManager::orderPlacedSuccess);
         cart->placeOrder("123 MG Road, Apt 4B");
@@ -140,6 +145,51 @@ private slots:
         // Cart must be cleared upon successful placement
         QCOMPARE(cart->itemCount(), 0);
         QCOMPARE(cart->total(), 0.0);
+    }
+
+    void testCartItemModificationsAndClear()
+    {
+        CartManager *cart = CartManager::instance();
+        cart->clearCart();
+        QCOMPARE(cart->itemCount(), 0);
+
+        QVariantMap p1;
+        p1["id"] = "prod_1";
+        p1["shopId"] = "shop_1";
+        p1["name"] = "Apples";
+        p1["price"] = 120.0;
+        cart->addItem(p1, 10);
+
+        QVariantMap p2;
+        p2["id"] = "prod_2";
+        p2["shopId"] = "shop_1";
+        p2["name"] = "Milk";
+        p2["price"] = 80.0;
+        cart->addItem(p2, 5);
+
+        QCOMPARE(cart->itemCount(), 2);
+        QCOMPARE(cart->items().size(), 2);
+
+        // Update quantity (+1)
+        cart->updateQuantity("prod_1", 1);
+        QCOMPARE(cart->itemCount(), 3); // 2 + 1
+
+        // Decrementing until 0 removes item
+        cart->updateQuantity("prod_1", -1);
+        cart->updateQuantity("prod_1", -1);
+        QCOMPARE(cart->items().size(), 1);
+
+        // Decrementing remaining item to 0 clears it
+        cart->updateQuantity("prod_2", -1);
+        QCOMPARE(cart->itemCount(), 0);
+        QCOMPARE(cart->items().size(), 0);
+
+        // Attempting to place order with empty cart fails gracefully
+        cart->placeOrder("Some address");
+        QCOMPARE(cart->errorMessage(), QStringLiteral("Cart is empty."));
+
+        cart->clearCart();
+        QCOMPARE(cart->itemCount(), 0);
     }
 };
 

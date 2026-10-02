@@ -48,9 +48,22 @@ public:
     Q_INVOKABLE void fetchProductsForShop(const QString &shopId);
     Q_INVOKABLE QVariantMap getProductAt(int index) const;
 
+    /**
+     * @brief Direct model population from JSON array.
+     */
+    void populateFromJson(const QJsonArray &arr);
+
+    /**
+     * @brief CRUD operations on products.
+     */
+    Q_INVOKABLE bool addProduct(const QJsonObject &productData);
+    Q_INVOKABLE bool updateProduct(const QString &productId, const QJsonObject &productData);
+    Q_INVOKABLE bool deleteProduct(const QString &productId);
+
 signals:
     void loadingChanged();
     void countChanged();
+    void productUpdated(const QString &productId);
 
 private:
     QVector<ProductItemData> m_products;

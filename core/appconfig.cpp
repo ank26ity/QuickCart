@@ -29,6 +29,9 @@ AppConfig::AppConfig(QObject *parent)
 
 AppConfig* AppConfig::instance()
 {
+    if (!s_appConfigInstance) {
+        new AppConfig(qApp);
+    }
     return s_appConfigInstance;
 }
 
@@ -142,3 +145,64 @@ void AppConfig::updateUrlsForEnvironment()
     emit apiBaseUrlChanged();
     emit wsBaseUrlChanged();
 }
+
+qint64 AppConfig::baseDeliveryFeePaise() const
+{
+    return m_baseDeliveryFeePaise;
+}
+
+void AppConfig::setBaseDeliveryFeePaise(qint64 paise)
+{
+    if (m_baseDeliveryFeePaise != paise) {
+        m_baseDeliveryFeePaise = paise;
+        emit deliveryFeeConfigChanged();
+    }
+}
+
+qint64 AppConfig::perKmFeePaise() const
+{
+    return m_perKmFeePaise;
+}
+
+void AppConfig::setPerKmFeePaise(qint64 paise)
+{
+    if (m_perKmFeePaise != paise) {
+        m_perKmFeePaise = paise;
+        emit deliveryFeeConfigChanged();
+    }
+}
+
+qint64 AppConfig::freeDeliveryThresholdPaise() const
+{
+    return m_freeDeliveryThresholdPaise;
+}
+
+void AppConfig::setFreeDeliveryThresholdPaise(qint64 paise)
+{
+    if (m_freeDeliveryThresholdPaise != paise) {
+        m_freeDeliveryThresholdPaise = paise;
+        emit deliveryFeeConfigChanged();
+    }
+}
+
+qint64 AppConfig::calculateDeliveryFeePaise(double distanceKm, qint64 subtotalPaise) const
+{
+    if (subtotalPaise <= 0) return 0;
+    if (subtotalPaise >= m_freeDeliveryThresholdPaise) return 0;
+    double dist = std::max(0.0, distanceKm);
+    qint64 distanceFee = static_cast<qint64>(std::round(dist * m_perKmFeePaise));
+    return m_baseDeliveryFeePaise + distanceFee;
+}
+
+double AppConfig::calculateDeliveryFee(double distanceKm, double subtotal) const
+{
+    qint64 subtotalPaise = static_cast<qint64>(std::round(subtotal * 100.0));
+    return calculateDeliveryFeePaise(distanceKm, subtotalPaise) / 100.0;
+}
+
+QString AppConfig::formatMoney(qint64 paise) const
+{
+    double rupees = paise / 100.0;
+    return QString::asprintf("%.2f", rupees);
+}
+

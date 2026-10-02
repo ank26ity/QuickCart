@@ -90,6 +90,17 @@ Result<void> Validators::validatePrice(double price)
     return Result<void>::ok();
 }
 
+Result<void> Validators::validatePricePaise(qint64 paise)
+{
+    if (paise <= 0) {
+        return Result<void>::error(AppError::validation(QStringLiteral("Price in paise must be strictly positive.")));
+    }
+    if (paise > 50000000) { // ₹500,000.00
+        return Result<void>::error(AppError::validation(QStringLiteral("Price in paise exceeds maximum transaction limit of ₹500,000.00.")));
+    }
+    return Result<void>::ok();
+}
+
 Result<void> Validators::validateQuantity(int quantity, int stockLimit)
 {
     if (quantity <= 0) {

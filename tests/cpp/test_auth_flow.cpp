@@ -129,6 +129,28 @@ private slots:
         QVERIFY(compSpy.wait(3000));
         QCOMPARE(auth->complianceStatus(), QStringLiteral("pending"));
     }
+
+    void testOtpRequestAndVerify()
+    {
+        AuthService *auth = AuthService::instance();
+
+        // Invalid phone format
+        auth->requestOtp("123");
+        QVERIFY(!auth->isOtpSent());
+        QVERIFY(!auth->errorMessage().isEmpty());
+
+        // Valid phone format
+        auth->requestOtp("+919876543210");
+        QTRY_VERIFY_WITH_TIMEOUT(auth->isOtpSent(), 4000);
+
+        // Invalid OTP length
+        auth->verifyOtp("+919876543210", "12");
+        QVERIFY(!auth->isLoggedIn());
+
+        // Valid OTP verification
+        auth->verifyOtp("+919876543210", "1234");
+        QTRY_VERIFY_WITH_TIMEOUT(auth->isLoggedIn(), 4000);
+    }
 };
 
 QTEST_MAIN(TestAuthFlow)

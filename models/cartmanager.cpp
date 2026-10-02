@@ -9,10 +9,12 @@
 #include "../api/networkmanager.h"
 #include "../api/apiclient.h"
 #include "../core/validators.h"
+#include "../core/appconfig.h"
 #include <QtCore/QCoreApplication>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QJsonArray>
+#include <cmath>
 
 static CartManager *s_cartManagerInstance = nullptr;
 
@@ -39,23 +41,52 @@ int CartManager::itemCount() const
     return count;
 }
 
-double CartManager::subtotal() const
+qint64 CartManager::subtotalPaise() const
 {
-    double sum = 0.0;
+    qint64 sum = 0;
     for (const CartEntry &entry : m_cart) {
-        sum += (entry.price * entry.quantity);
+        sum += (entry.pricePaise * entry.quantity);
     }
     return sum;
 }
 
+qint64 CartManager::deliveryFeePaise() const
+{
+    if (m_cart.isEmpty()) return 0;
+    return AppConfig::instance()->calculateDeliveryFeePaise(m_deliveryDistanceKm, subtotalPaise());
+}
+
+qint64 CartManager::totalPaise() const
+{
+    return subtotalPaise() + deliveryFeePaise();
+}
+
+double CartManager::subtotal() const
+{
+    return subtotalPaise() / 100.0;
+}
+
 double CartManager::deliveryFee() const
 {
-    return m_cart.isEmpty() ? 0.0 : 50.0;
+    return deliveryFeePaise() / 100.0;
 }
 
 double CartManager::total() const
 {
-    return subtotal() + deliveryFee();
+    return totalPaise() / 100.0;
+}
+
+double CartManager::deliveryDistanceKm() const
+{
+    return m_deliveryDistanceKm;
+}
+
+void CartManager::setDeliveryDistanceKm(double km)
+{
+    if (!qFuzzyCompare(m_deliveryDistanceKm, km)) {
+        m_deliveryDistanceKm = km;
+        emit cartChanged();
+    }
 }
 
 QString CartManager::shopId() const
@@ -71,10 +102,13 @@ QVariantList CartManager::items() const
         map[QStringLiteral("productId")] = entry.productId;
         map[QStringLiteral("shopId")] = entry.shopId;
         map[QStringLiteral("name")] = entry.name;
-        map[QStringLiteral("price")] = entry.price;
+        map[QStringLiteral("price")] = entry.price();
+        map[QStringLiteral("pricePaise")] = entry.pricePaise;
         map[QStringLiteral("quantity")] = entry.quantity;
         map[QStringLiteral("maxStock")] = entry.maxStock;
         map[QStringLiteral("image")] = entry.image;
+        map[QStringLiteral("totalPrice")] = entry.price() * entry.quantity;
+        map[QStringLiteral("totalPricePaise")] = entry.pricePaise * entry.quantity;
         list.append(map);
     }
     return list;
@@ -128,7 +162,11 @@ bool CartManager::addItem(const QVariantMap &product, int maxStock)
         entry.productId = pId;
         entry.shopId = pShopId;
         entry.name = product.value(QStringLiteral("name")).toString();
-        entry.price = product.value(QStringLiteral("price")).toDouble();
+        if (product.contains(QStringLiteral("pricePaise"))) {
+            entry.pricePaise = product.value(QStringLiteral("pricePaise")).toLongLong();
+        } else {
+            entry.pricePaise = static_cast<qint64>(std::round(product.value(QStringLiteral("price")).toDouble() * 100.0));
+        }
         entry.quantity = 1;
         entry.maxStock = maxStock;
         entry.image = product.value(QStringLiteral("image")).toString();
@@ -199,6 +237,9 @@ void CartManager::placeOrder(const QString &address)
     payload[QStringLiteral("subtotal")] = subtotal();
     payload[QStringLiteral("delivery_fee")] = deliveryFee();
     payload[QStringLiteral("total")] = total();
+    payload[QStringLiteral("subtotal_paise")] = subtotalPaise();
+    payload[QStringLiteral("delivery_fee_paise")] = deliveryFeePaise();
+    payload[QStringLiteral("total_paise")] = totalPaise();
     payload[QStringLiteral("idempotency_key")] = ApiClient::generateIdempotencyKey();
 
     QJsonArray itemsArr;
@@ -206,7 +247,8 @@ void CartManager::placeOrder(const QString &address)
         QJsonObject itemObj;
         itemObj[QStringLiteral("item_id")] = e.productId;
         itemObj[QStringLiteral("name")] = e.name;
-        itemObj[QStringLiteral("price")] = e.price;
+        itemObj[QStringLiteral("price")] = e.price();
+        itemObj[QStringLiteral("price_paise")] = e.pricePaise;
         itemObj[QStringLiteral("quantity")] = e.quantity;
         itemsArr.append(itemObj);
     }

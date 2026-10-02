@@ -99,6 +99,23 @@ private slots:
         QCOMPARE(settings.value("themeMode").toString(), QStringLiteral("light"));
         QCOMPARE(settings.value("reducedMotion").toBool(), true);
     }
+
+    void testLiveColorSchemeChange()
+    {
+        ThemeManager *tm = ThemeManager::instance();
+        tm->setMode(QStringLiteral("system"));
+
+        QSignalSpy darkSpy(tm, &ThemeManager::isDarkChanged);
+
+        // Simulate live system color scheme changes if style hints are available
+        if (QGuiApplication::styleHints()) {
+            emit QGuiApplication::styleHints()->colorSchemeChanged(Qt::ColorScheme::Light);
+            emit QGuiApplication::styleHints()->colorSchemeChanged(Qt::ColorScheme::Dark);
+        }
+
+        // System mode is preserved across live changes
+        QCOMPARE(tm->mode(), QStringLiteral("system"));
+    }
 };
 
 QTEST_MAIN(TestThemeManager)

@@ -78,8 +78,11 @@ AppError ApiClient::mapHttpStatusToError(int statusCode, const QString &response
 AuthResponseDto ApiClient::parseAuthResponse(const QJsonObject &json)
 {
     AuthResponseDto dto;
-    dto.accessToken = json.value(QStringLiteral("access_token")).toString(json.value(QStringLiteral("token")).toString());
-    dto.refreshToken = json.value(QStringLiteral("refresh_token")).toString();
+    dto.accessToken = json.value(QStringLiteral("access_token")).toString(
+        json.value(QStringLiteral("accessToken")).toString(
+        json.value(QStringLiteral("token")).toString()));
+    dto.refreshToken = json.value(QStringLiteral("refresh_token")).toString(
+        json.value(QStringLiteral("refreshToken")).toString());
     QJsonObject user = json.value(QStringLiteral("user")).toObject();
     if (!user.isEmpty()) {
         dto.userId = user.value(QStringLiteral("id")).toString(user.value(QStringLiteral("_id")).toString());

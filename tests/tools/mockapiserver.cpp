@@ -323,6 +323,40 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
         return;
     }
 
+    // 3b. Auth OTP Send
+    if (method == "POST" && path == "/api/auth/otp/send") {
+        QJsonObject resp;
+        resp["success"] = true;
+        resp["message"] = "OTP sent successfully";
+        sendJsonResponse(socket, 200, QJsonDocument(resp));
+        return;
+    }
+
+    // 3c. Auth OTP Verify
+    if (method == "POST" && path == "/api/auth/otp/verify") {
+        QString phone = bodyObj.value("phone").toString();
+        QString otp = bodyObj.value("otp").toString();
+        if (otp == "1234" || otp == "123456") {
+            QJsonObject user;
+            user["_id"] = "user_otp_" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+            user["phone"] = phone;
+            user["role"] = "customer";
+            user["name"] = "Phone User";
+
+            QJsonObject resp;
+            resp["accessToken"] = "mock_jwt_otp_access_" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+            resp["refreshToken"] = "mock_jwt_otp_refresh_" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+            resp["user"] = user;
+            sendJsonResponse(socket, 200, QJsonDocument(resp));
+            return;
+        } else {
+            QJsonObject err;
+            err["message"] = "Invalid verification code";
+            sendJsonResponse(socket, 400, QJsonDocument(err));
+            return;
+        }
+    }
+
     // 4. Shops Listing with 3km Haversine Filter
     if (method == "GET" && path == "/api/shops") {
         QUrlQuery query(parsedUrl.query());

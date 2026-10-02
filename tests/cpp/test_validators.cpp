@@ -60,6 +60,15 @@ private slots:
         QVERIFY(Validators::validatePrice(0.0).isError());
         QVERIFY(Validators::validatePrice(-15.5).isError());
         QVERIFY(Validators::validatePrice(600000.0).isError());
+
+        // Integer paise validation tests
+        QVERIFY(Validators::validatePricePaise(2999).isSuccess());
+        QVERIFY(Validators::validatePricePaise(1).isSuccess());
+        QVERIFY(Validators::validatePricePaise(50000000).isSuccess());
+
+        QVERIFY(Validators::validatePricePaise(0).isError());
+        QVERIFY(Validators::validatePricePaise(-100).isError());
+        QVERIFY(Validators::validatePricePaise(50000001).isError());
     }
 
     void testQuantityValidation()

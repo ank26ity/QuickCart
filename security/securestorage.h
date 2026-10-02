@@ -93,6 +93,14 @@ private:
     bool saveToKeychain(const QString &key, const QByteArray &data);
     QByteArray getFromKeychain(const QString &key) const;
     bool deleteFromKeychain(const QString &key);
+#elif defined(Q_OS_WIN)
+    bool saveToWindowsCredManager(const QString &key, const QByteArray &data);
+    QByteArray getFromWindowsCredManager(const QString &key) const;
+    bool deleteFromWindowsCredManager(const QString &key);
+#elif defined(Q_OS_ANDROID)
+    bool saveToAndroidKeystore(const QString &key, const QByteArray &data);
+    QByteArray getFromAndroidKeystore(const QString &key) const;
+    bool deleteFromAndroidKeystore(const QString &key);
 #endif
 
     bool saveToEncryptedStore(const QString &key, const QByteArray &data);

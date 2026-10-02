@@ -60,6 +60,13 @@ public:
     static Result<void> validatePrice(double price);
 
     /**
+     * @brief Validate product or cart item price in integer paise.
+     * @param paise Value to check in minor units (paise). Must be > 0 and <= 50,000,000 (₹500,000.00).
+     * @return Result::ok() on valid price, Result::error() otherwise.
+     */
+    static Result<void> validatePricePaise(qint64 paise);
+
+    /**
      * @brief Validate requested cart purchase quantity against merchant stock.
      * @param quantity The requested item count (must be >= 1).
      * @param stockLimit The currently available stock count (must be >= 0).

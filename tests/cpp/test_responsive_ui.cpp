@@ -14,6 +14,7 @@
 #include <QtQml/QQmlEngine>
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
+#include "../../core/thememanager.h"
 
 class MockAuthService : public QObject
 {
@@ -74,16 +75,41 @@ class TestResponsiveUI : public QObject
 private:
     QString m_sourceDir;
     QString m_screenshotDir;
+    QString m_goldenDir;
+
+    static double calculateMismatchRatio(const QImage &actual, const QImage &golden)
+    {
+        if (actual.size() != golden.size()) return 1.0;
+        int diffPixels = 0;
+        int totalPixels = actual.width() * actual.height();
+        for (int y = 0; y < actual.height(); ++y) {
+            for (int x = 0; x < actual.width(); ++x) {
+                QRgb a = actual.pixel(x, y);
+                QRgb g = golden.pixel(x, y);
+                int dr = std::abs(qRed(a) - qRed(g));
+                int dg = std::abs(qGreen(a) - qGreen(g));
+                int db = std::abs(qBlue(a) - qBlue(g));
+                // Allow minor antialiasing / GPU subpixel variances
+                if (dr > 15 || dg > 15 || db > 15) {
+                    diffPixels++;
+                }
+            }
+        }
+        return static_cast<double>(diffPixels) / totalPixels;
+    }
 
 private slots:
     void initTestCase()
     {
         m_sourceDir = QStringLiteral(QUICKCART_SOURCE_DIR);
         m_screenshotDir = m_sourceDir + QStringLiteral("/build/screenshots");
+        m_goldenDir = m_sourceDir + QStringLiteral("/tests/golden");
         QDir().mkpath(m_screenshotDir);
+        QDir().mkpath(m_goldenDir);
 
         qDebug() << "TestResponsiveUI initialized with SourceDir:" << m_sourceDir;
         qDebug() << "Screenshots output dir:" << m_screenshotDir;
+        qDebug() << "Golden reference dir:" << m_goldenDir;
     }
 
     void testResponsiveBreakpoints()
@@ -325,6 +351,17 @@ private slots:
         QVERIFY(root != nullptr);
         root->setProperty("authService", QVariant::fromValue(&authService));
 
+        // Inject ThemeManager to drive theme switches live
+        ThemeManager *tm = ThemeManager::instance();
+        view.rootContext()->setContextProperty(QStringLiteral("themeManager"), tm);
+        QQmlComponent themeComp(view.engine(), QUrl::fromLocalFile(m_sourceDir + QStringLiteral("/qml/theme/Theme.qml")));
+        if (themeComp.isReady()) {
+            QObject *themeObj = themeComp.create(view.rootContext());
+            if (themeObj) {
+                themeObj->setProperty("themeManager", QVariant::fromValue(tm));
+            }
+        }
+
         struct FormFactor
         {
             const char *name;
@@ -339,23 +376,47 @@ private slots:
             {"desktop_1440x900", 1440, 900}
         };
 
-        for (const auto &factor : factors) {
-            view.resize(factor.width, factor.height);
-            view.show();
-            QTest::qWait(100);
+        const QStringList modes = { QStringLiteral("dark"), QStringLiteral("light") };
 
-            QImage frame = view.grabWindow();
-            QVERIFY2(!frame.isNull(), qPrintable(QString("Frame grab for %1 failed").arg(factor.name)));
-            QCOMPARE(frame.width(), factor.width);
-            QCOMPARE(frame.height(), factor.height);
+        for (const QString &mode : modes) {
+            tm->setMode(mode);
+            QTest::qWait(50);
 
-            QString outPath = QString("%1/%2.png").arg(m_screenshotDir, factor.name);
-            bool saved = frame.save(outPath);
-            QVERIFY2(saved, qPrintable(QString("Failed to save screenshot: %1").arg(outPath)));
+            for (const auto &factor : factors) {
+                QString fullName = QString("%1_%2").arg(factor.name, mode);
+                view.resize(factor.width, factor.height);
+                view.show();
+                QTest::qWait(100);
 
-            qDebug() << "Captured offscreen frame for" << factor.name
-                     << "Dimensions:" << frame.width() << "x" << frame.height()
-                     << "Saved to:" << outPath;
+                QImage frame = view.grabWindow();
+                QVERIFY2(!frame.isNull(), qPrintable(QString("Frame grab for %1 failed").arg(fullName)));
+                QCOMPARE(frame.width(), factor.width);
+                QCOMPARE(frame.height(), factor.height);
+
+                QString outPath = QString("%1/%2.png").arg(m_screenshotDir, fullName);
+                bool saved = frame.save(outPath);
+                QVERIFY2(saved, qPrintable(QString("Failed to save screenshot: %1").arg(outPath)));
+
+                // Compare with golden reference
+                QString goldenPath = QString("%1/%2.png").arg(m_goldenDir, fullName);
+                if (!QFileInfo::exists(goldenPath)) {
+                    // Seed golden image on first generation
+                    bool goldenSaved = frame.save(goldenPath);
+                    QVERIFY2(goldenSaved, qPrintable(QString("Failed to save golden image: %1").arg(goldenPath)));
+                    qDebug() << "Seeded golden reference for" << fullName << "at:" << goldenPath;
+                } else {
+                    QImage goldenImage(goldenPath);
+                    QVERIFY2(!goldenImage.isNull(), qPrintable(QString("Failed to read golden image: %1").arg(goldenPath)));
+                    double mismatch = calculateMismatchRatio(frame, goldenImage);
+                    qDebug() << "Screenshot mismatch ratio for" << fullName << ":" << (mismatch * 100.0) << "% (tolerance: 5.0%)";
+                    QVERIFY2(mismatch <= 0.05, qPrintable(QString("Screenshot difference %1% exceeds tolerance of 5% for %2")
+                        .arg(mismatch * 100.0, 0, 'f', 2).arg(fullName)));
+                }
+
+                qDebug() << "Verified screenshot for" << fullName
+                         << "Dimensions:" << frame.width() << "x" << frame.height()
+                         << "Saved to:" << outPath;
+            }
         }
     }
 };

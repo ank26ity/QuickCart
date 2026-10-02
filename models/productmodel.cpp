@@ -114,6 +114,91 @@ void ProductModel::fetchProductsForShop(const QString &shopId)
     });
 }
 
+void ProductModel::populateFromJson(const QJsonArray &itemsArr)
+{
+    QVector<ProductItemData> newProducts;
+    for (const QJsonValue &val : itemsArr) {
+        if (!val.isObject()) continue;
+        QJsonObject itemObj = val.toObject();
+
+        ProductItemData item;
+        item.id = itemObj.value(QStringLiteral("_id")).toString(itemObj.value(QStringLiteral("id")).toString());
+        item.shopId = itemObj.value(QStringLiteral("shop_id")).toString();
+        item.name = itemObj.value(QStringLiteral("name")).toString();
+        item.description = itemObj.value(QStringLiteral("description")).toString();
+        item.price = itemObj.value(QStringLiteral("price")).toDouble(0.0);
+        item.quantity = itemObj.value(QStringLiteral("quantity")).toInt(0);
+        item.image = itemObj.value(QStringLiteral("image")).toString(QStringLiteral("https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=300"));
+
+        newProducts.append(item);
+    }
+
+    beginResetModel();
+    m_products = newProducts;
+    endResetModel();
+    m_isLoading = false;
+    emit loadingChanged();
+    emit countChanged();
+}
+
+bool ProductModel::addProduct(const QJsonObject &productData)
+{
+    ProductItemData item;
+    item.id = productData.value(QStringLiteral("_id")).toString(productData.value(QStringLiteral("id")).toString(QStringLiteral("prod_") + QString::number(m_products.size() + 1)));
+    item.shopId = productData.value(QStringLiteral("shop_id")).toString();
+    item.name = productData.value(QStringLiteral("name")).toString();
+    item.description = productData.value(QStringLiteral("description")).toString();
+    item.price = productData.value(QStringLiteral("price")).toDouble(0.0);
+    item.quantity = productData.value(QStringLiteral("quantity")).toInt(0);
+    item.image = productData.value(QStringLiteral("image")).toString(QStringLiteral("https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=300"));
+
+    beginInsertRows(QModelIndex(), m_products.size(), m_products.size());
+    m_products.append(item);
+    endInsertRows();
+
+    emit countChanged();
+    emit productUpdated(item.id);
+    return true;
+}
+
+bool ProductModel::updateProduct(const QString &productId, const QJsonObject &productData)
+{
+    for (int i = 0; i < m_products.size(); ++i) {
+        if (m_products[i].id == productId) {
+            if (productData.contains(QStringLiteral("name")))
+                m_products[i].name = productData.value(QStringLiteral("name")).toString();
+            if (productData.contains(QStringLiteral("description")))
+                m_products[i].description = productData.value(QStringLiteral("description")).toString();
+            if (productData.contains(QStringLiteral("price")))
+                m_products[i].price = productData.value(QStringLiteral("price")).toDouble();
+            if (productData.contains(QStringLiteral("quantity")))
+                m_products[i].quantity = productData.value(QStringLiteral("quantity")).toInt();
+            if (productData.contains(QStringLiteral("image")))
+                m_products[i].image = productData.value(QStringLiteral("image")).toString();
+
+            emit dataChanged(index(i, 0), index(i, 0));
+            emit productUpdated(productId);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ProductModel::deleteProduct(const QString &productId)
+{
+    for (int i = 0; i < m_products.size(); ++i) {
+        if (m_products[i].id == productId) {
+            beginRemoveRows(QModelIndex(), i, i);
+            m_products.removeAt(i);
+            endRemoveRows();
+            emit countChanged();
+            emit productUpdated(productId);
+            return true;
+        }
+    }
+    return false;
+}
+
 QVariantMap ProductModel::getProductAt(int index) const
 {
     if (index < 0 || index >= m_products.size()) return QVariantMap();
@@ -128,3 +213,4 @@ QVariantMap ProductModel::getProductAt(int index) const
     map["image"] = p.image;
     return map;
 }
+
