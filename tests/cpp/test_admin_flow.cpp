@@ -8,6 +8,7 @@
 #include <QtCore/QJsonObject>
 #include <QtCore/QJsonArray>
 #include "../../security/permissionmanager.h"
+#include "../../security/securestorage.h"
 #include "../../models/shopmodel.h"
 #include "../../models/ordermodel.h"
 #include "../../core/orderstatemachine.h"
@@ -217,6 +218,46 @@ private slots:
         QVERIFY(foundApproval);
         QVERIFY(foundSuspension);
         QVERIFY(foundDispatch);
+    }
+
+    void testNonAdminAccessToAdminEndpointsReturns403()
+    {
+        // 1. Customer token attempting admin approve endpoint -> 403 Forbidden
+        SecureStorage::instance()->saveTokens(QStringLiteral("mock_jwt_customer_token"), QStringLiteral("refresh"));
+
+        bool done = false;
+        bool is403 = false;
+        NetworkManager::instance()->post(
+            QStringLiteral("/api/admin/courier/user_courier_1/approve"),
+            QJsonObject(),
+            [&](bool success, const QJsonDocument &, const QString &err) {
+                done = true;
+                if (!success && (err.contains("403") || err.contains("Forbidden"))) {
+                    is403 = true;
+                }
+            }
+        );
+        QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
+        QVERIFY2(is403, "Customer token must be rejected with HTTP 403 on admin endpoints");
+
+        // 2. Delivery courier token attempting audit logs -> 403 Forbidden
+        SecureStorage::instance()->saveTokens(QStringLiteral("mock_jwt_delivery_token"), QStringLiteral("refresh"));
+        done = false;
+        is403 = false;
+        NetworkManager::instance()->get(
+            QStringLiteral("/api/admin/audit-logs"),
+            [&](bool success, const QJsonDocument &, const QString &err) {
+                done = true;
+                if (!success && (err.contains("403") || err.contains("Forbidden"))) {
+                    is403 = true;
+                }
+            }
+        );
+        QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
+        QVERIFY2(is403, "Courier token must be rejected with HTTP 403 on admin audit-logs endpoint");
+
+        // Reset storage tokens
+        SecureStorage::instance()->clearTokens();
     }
 };
 

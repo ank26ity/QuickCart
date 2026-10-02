@@ -226,6 +226,47 @@ private slots:
 
         store->setBackendForTesting(SecureStorage::Backend::PlatformDefault);
     }
+
+    void testWindowsCredentialManagerSizeLimit()
+    {
+        SecureStorage *store = SecureStorage::instance();
+        store->setBackendForTesting(SecureStorage::Backend::WindowsCredManager);
+
+        // 1. Storing 32-byte master key or standard JWT token (< 2560 bytes) succeeds
+        QByteArray validToken(512, 'X');
+        QVERIFY(store->saveSecret(QStringLiteral("valid_win_token"), QString::fromUtf8(validToken)));
+        QCOMPARE(store->getSecret(QStringLiteral("valid_win_token")).toUtf8(), validToken);
+
+        // 2. Exactly 2560 bytes succeeds
+        QByteArray boundaryToken(2560, 'Y');
+        QVERIFY(store->saveSecret(QStringLiteral("boundary_token"), QString::fromUtf8(boundaryToken)));
+        QCOMPARE(store->getSecret(QStringLiteral("boundary_token")).toUtf8(), boundaryToken);
+
+        // 3. Exceeding 2560 bytes (e.g. 2561 bytes) is rejected
+        QByteArray oversizedToken(2561, 'Z');
+        QVERIFY(!store->saveSecret(QStringLiteral("oversized_token"), QString::fromUtf8(oversizedToken)));
+
+        store->setBackendForTesting(SecureStorage::Backend::PlatformDefault);
+    }
+
+    void testMultiPlatformBackends()
+    {
+        SecureStorage *store = SecureStorage::instance();
+
+        // Windows backend
+        store->setBackendForTesting(SecureStorage::Backend::WindowsCredManager);
+        QVERIFY(store->saveSecret(QStringLiteral("win_key"), QStringLiteral("win_val")));
+        QCOMPARE(store->getSecret(QStringLiteral("win_key")), QStringLiteral("win_val"));
+        QVERIFY(store->deleteSecret(QStringLiteral("win_key")));
+
+        // Android backend
+        store->setBackendForTesting(SecureStorage::Backend::AndroidKeystore);
+        QVERIFY(store->saveSecret(QStringLiteral("droid_key"), QStringLiteral("droid_val")));
+        QCOMPARE(store->getSecret(QStringLiteral("droid_key")), QStringLiteral("droid_val"));
+        QVERIFY(store->deleteSecret(QStringLiteral("droid_key")));
+
+        store->setBackendForTesting(SecureStorage::Backend::PlatformDefault);
+    }
 };
 
 QTEST_MAIN(TestSecureStorage)

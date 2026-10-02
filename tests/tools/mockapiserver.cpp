@@ -326,6 +326,39 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
         return;
     }
 
+    // Extract HTTP Headers
+    QMap<QString, QString> reqHeaders;
+    for (int i = 1; i < lines.size(); ++i) {
+        if (lines[i].trimmed().isEmpty()) break;
+        int colon = lines[i].indexOf(QLatin1Char(':'));
+        if (colon > 0) {
+            reqHeaders[lines[i].left(colon).trimmed().toLower()] = lines[i].mid(colon + 1).trimmed();
+        }
+    }
+
+    // ── Enforce 403 Forbidden for Non-Admins on Server Endpoints ────────────
+    if (path.startsWith(QStringLiteral("/api/admin/"))) {
+        QString authHdr = reqHeaders.value(QStringLiteral("authorization"));
+        QString roleHdr = reqHeaders.value(QStringLiteral("x-user-role")).toLower();
+        bool isNonAdmin = authHdr.contains(QStringLiteral("customer"), Qt::CaseInsensitive) ||
+                          authHdr.contains(QStringLiteral("delivery"), Qt::CaseInsensitive) ||
+                          authHdr.contains(QStringLiteral("courier"), Qt::CaseInsensitive) ||
+                          authHdr.contains(QStringLiteral("shopkeeper"), Qt::CaseInsensitive) ||
+                          authHdr.contains(QStringLiteral("non_admin"), Qt::CaseInsensitive) ||
+                          roleHdr == QStringLiteral("customer") ||
+                          roleHdr == QStringLiteral("delivery") ||
+                          roleHdr == QStringLiteral("shopkeeper");
+
+        if (isNonAdmin) {
+            QJsonObject err;
+            err[QStringLiteral("error")] = QStringLiteral("Forbidden: Administrative privileges required");
+            err[QStringLiteral("message")] = QStringLiteral("Forbidden: Insufficient privileges (HTTP 403)");
+            err[QStringLiteral("statusCode")] = 403;
+            sendJsonResponse(socket, 403, QJsonDocument(err));
+            return;
+        }
+    }
+
     // Extract JSON body
     int bodyIdx = rawRequest.indexOf("\r\n\r\n");
     QByteArray bodyData = (bodyIdx >= 0) ? rawRequest.mid(bodyIdx + 4) : QByteArray();

@@ -479,6 +479,10 @@ bool SecureStorage::deleteFromKeychain(const QString &key)
 
 bool SecureStorage::saveToWindowsCredManager(const QString &key, const QByteArray &data)
 {
+    // Windows Credential Manager generic credentials impose a strict 2560-byte (or 5120-byte) limit
+    if (data.size() > 2560) {
+        return false;
+    }
 #if defined(Q_OS_WIN)
     deleteFromWindowsCredManager(key);
     std::wstring targetName = (QStringLiteral("QuickCart_") + key).toStdWString();

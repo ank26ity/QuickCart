@@ -1,5 +1,7 @@
 build/
 build-*/
+screenshots/
+build/screenshots/
 .cache/
 .DS_Store
 *.gcda
@@ -14,3 +16,4 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+

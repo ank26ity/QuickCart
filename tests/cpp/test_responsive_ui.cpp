@@ -78,7 +78,7 @@ private:
     QString m_screenshotDir;
     QString m_goldenDir;
 
-    static constexpr double MAX_MISMATCH_TOLERANCE = 0.005; // Strict 0.5% tolerance threshold
+    static constexpr double MAX_MISMATCH_TOLERANCE = 0.0005; // Strict <= 0.05% tolerance threshold
 
     static double calculateMismatchRatio(const QImage &actual, const QImage &golden)
     {
@@ -92,8 +92,8 @@ private:
                 int dr = std::abs(qRed(a) - qRed(g));
                 int dg = std::abs(qGreen(a) - qGreen(g));
                 int db = std::abs(qBlue(a) - qBlue(g));
-                // Allow minor subpixel anti-aliasing variations
-                if (dr > 15 || dg > 15 || db > 15) {
+                // Per-pixel threshold: delta > 10 on any channel or aggregate delta > 20
+                if (dr > 10 || dg > 10 || db > 10 || (dr + dg + db) > 20) {
                     diffPixels++;
                 }
             }
@@ -113,7 +113,7 @@ private slots:
         qDebug() << "TestResponsiveUI initialized with SourceDir:" << m_sourceDir;
         qDebug() << "Screenshots output dir:" << m_screenshotDir;
         qDebug() << "Golden reference dir:" << m_goldenDir;
-        qDebug() << "Enforced screenshot difference tolerance: <= 0.5%";
+        qDebug() << "Enforced screenshot difference tolerance: <= 0.05% (0.0005)";
     }
 
     void testResponsiveBreakpoints()
@@ -236,21 +236,39 @@ private slots:
 
     void testDeliberateUiMismatchFails()
     {
-        // Construct baseline image
+        // ── 1. Negative Control: 20x20 rect on 360x640 mobile screen ──────────
+        // Mathematical proof:
+        // A 20x20 rect occupies 400 pixels.
+        // On 360x640 (230,400 px), mismatch = 400 / 230,400 = 0.001736... (0.1736%).
+        // Note: A 20x20 rect cannot be 1.11% of any standard golden:
+        //   For 400 pixels to equal 1.11% (0.0111), total area would be 400/0.0111 = 36,036 px (~190x190).
+        // Under our tightened tolerance (<=0.05% = 0.0005), 0.1736% > 0.05%, so it strictly FAILS.
         QImage base(360, 640, QImage::Format_ARGB32);
-        base.fill(QColor(15, 23, 42));
+        base.fill(QColor(15, 23, 42)); // Background: dark navy (#0f172a)
 
-        // Inject deliberate visual perturbation (60x60 red square = ~1.56% difference)
-        QImage perturbed = base.copy();
-        QPainter painter(&perturbed);
-        painter.fillRect(50, 50, 60, 60, QColor(239, 68, 68));
-        painter.end();
+        QImage rect20Perturbed = base.copy();
+        QPainter p1(&rect20Perturbed);
+        p1.fillRect(20, 20, 20, 20, QColor(239, 68, 68)); // 20x20 red square
+        p1.end();
 
-        double mismatch = calculateMismatchRatio(perturbed, base);
-        qDebug() << "Deliberate UI perturbation mismatch ratio:" << (mismatch * 100.0) << "% (threshold: 0.5%)";
+        double rectMismatch = calculateMismatchRatio(rect20Perturbed, base);
+        qDebug() << "Negative Control [20x20 Rect]:" << (rectMismatch * 100.0) << "% (tightened threshold: <= 0.05%)";
+        QVERIFY2(rectMismatch > MAX_MISMATCH_TOLERANCE,
+                 qPrintable(QString("20x20 rect (%1%) must exceed tightened 0.05% threshold").arg(rectMismatch * 100.0)));
 
-        // Must strictly exceed tolerance to prove detector functions
-        QVERIFY2(mismatch > MAX_MISMATCH_TOLERANCE, "Deliberate UI modification must exceed 0.5% tolerance threshold");
+        // ── 2. Negative Control: Real Token Color Shift in App Layout ─────────
+        // Simulate changing the HeaderBar surface token (#0f172a -> #10b981) across top 56px:
+        // 360 * 56 = 20,160 pixels out of 230,400 = 8.7500% overall perturbation.
+        QImage tokenPerturbed = base.copy();
+        QPainter p2(&tokenPerturbed);
+        p2.fillRect(0, 0, 360, 56, QColor(16, 185, 129)); // Changed header background token
+        p2.end();
+
+        double tokenMismatch = calculateMismatchRatio(tokenPerturbed, base);
+        qDebug() << "Negative Control [HeaderBar Token Shift]:" << (tokenMismatch * 100.0) << "% (tightened threshold: <= 0.05%)";
+        QVERIFY2(tokenMismatch > MAX_MISMATCH_TOLERANCE,
+                 qPrintable(QString("HeaderBar token shift (%1%) must exceed tightened 0.05% threshold").arg(tokenMismatch * 100.0)));
+        QVERIFY2(tokenMismatch >= 0.087, "HeaderBar 56px change on 360w screen must measure >= 8.7%");
     }
 
     void testOffscreenScreenshotCaptures()

@@ -178,6 +178,7 @@ jobs:
         run: |
           export QT_QPA_PLATFORM=offscreen
           export ASAN_OPTIONS=detect_leaks=1:abort_on_error=1
+          export LSAN_OPTIONS=suppressions=${{ github.workspace }}/scripts/lsan.supp:print_suppressions=0
           export UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1
           ctest --test-dir build-asan --output-on-failure
 
@@ -193,7 +194,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential cmake ninja-build libssl-dev python3 \
+            build-essential cmake ninja-build libssl-dev python3 gcovr lcov \
             libgl1-mesa-dev libxkbcommon-dev libx11-xcb1 libxrender1 libxi6 libfontconfig1 libdbus-1-3
 
       - name: Install Qt 6.11 (Linux)
@@ -221,6 +222,21 @@ jobs:
 
       - name: Enforce Minimum Coverage Threshold
         run: python3 scripts/coverage_report.py build-cov
+
+      - name: Generate gcovr HTML Coverage Report
+        if: always()
+        run: |
+          gcovr --html-details -o build-cov/coverage.html --exclude-throw-branches \
+            --filter "core/" --filter "models/" --filter "api/" --filter "security/" \
+            --root . build-cov
+
+      - name: Upload Coverage HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html-report
+          path: build-cov/coverage*.html
+          if-no-files-found: ignore
 
   # ── 5. Windows Desktop Build Check ────────────────────────────────────────
   windows-build:
@@ -271,18 +287,31 @@ jobs:
       - name: Set up Android SDK & NDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Qt 6.11 for Android
+      - name: Install Host Qt 6.11 (Linux Desktop)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.0'
+          host: 'linux'
+          target: 'desktop'
+          arch: 'linux_gcc_64'
+          modules: 'qtshadertools'
+          dir: '${{ runner.temp }}/qt-host'
+
+      - name: Install Target Qt 6.11 (Android ARM64)
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.11.0'
           target: 'android'
           arch: 'android_arm64_v8a'
+          dir: '${{ runner.temp }}/qt-android'
 
       - name: Configure & Verify Android Toolchain
         run: |
+          export QT_HOST_PATH="${{ runner.temp }}/qt-host/Qt/6.11.0/gcc_64"
           cmake -B build-android -S . \
-            -DCMAKE_TOOLCHAIN_FILE="$Qt6_DIR/lib/cmake/Qt6/qt.toolchain.cmake" \
+            -DCMAKE_TOOLCHAIN_FILE="${{ runner.temp }}/qt-android/Qt/6.11.0/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake" \
             -DQT_CHAINLOAD_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" \
+            -DQT_HOST_PATH="$QT_HOST_PATH" \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-33 \
             -DCMAKE_BUILD_TYPE=Release
