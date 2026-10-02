@@ -31,12 +31,14 @@ set(CMAKE_AUTOUIC ON)
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Gui
+    Qml
     Quick
     QuickControls2
     Network
     Concurrent
     QuickTest
 )
+
 
 if(ANDROID)
     include(FetchContent)
@@ -202,8 +204,10 @@ add_executable(test_thememanager
 target_link_libraries(test_thememanager PRIVATE
     Qt6::Core
     Qt6::Gui
+    Qt6::Qml
     Qt6::Test
 )
+
 target_include_directories(test_thememanager PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/core
