@@ -1,0 +1,153 @@
+name: QuickCart CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 1. Quality & Linting ──────────────────────────────────────────────────
+  lint-and-format:
+    name: Code Formatting & QML Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Clang-Format & Qt 6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format qt6-declarative-dev qt6-tools-dev qml6-module-qtquick-controls
+
+      - name: Run Clang-Format Check
+        run: |
+          find core security api models tests -name "*.h" -o -name "*.cpp" | xargs clang-format --dry-run --Werror
+
+      - name: Run QmlLint
+        run: |
+          qmllint \
+            -I qml \
+            -I qml/theme \
+            -I qml/responsive \
+            -I qml/navigation \
+            -I qml/i18n \
+            -I qml/icons \
+            -I qml/config \
+            -I qml/components \
+            qml/main.qml \
+            qml/theme/Theme.qml \
+            qml/theme/Metrics.qml \
+            qml/responsive/Responsive.qml \
+            qml/navigation/Router.qml \
+            qml/i18n/Strings.qml \
+            qml/icons/Icons.qml \
+            qml/config/Config.qml \
+            qml/components/AppScaffold.qml \
+            qml/components/CustomButton.qml \
+            qml/components/CustomTextField.qml \
+            qml/components/GlassCard.qml \
+            qml/components/HeaderBar.qml \
+            qml/components/ThemeSelector.qml \
+            qml/views/AdminView.qml \
+            qml/views/AuthView.qml \
+            qml/views/CustomerView.qml \
+            qml/views/DeliveryView.qml \
+            qml/views/ShopkeeperView.qml
+
+  # ── 2. Multi-Platform Build & CTest Matrix ────────────────────────────────
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-24.04]
+        include:
+          - os: macos-14
+            cmake_args: ""
+          - os: ubuntu-24.04
+            cmake_args: "-DCMAKE_BUILD_TYPE=Release"
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Qt 6 (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install qt cmake ninja
+
+      - name: Install Qt 6 (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build \
+            qt6-base-dev qt6-declarative-dev qt6-tools-dev \
+            qml6-module-qtquick qml6-module-qtquick-controls \
+            qml6-module-qtquick-layouts libgl1-mesa-dev
+
+      - name: Configure CMake
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            cmake -B build -S . -G Ninja -DCMAKE_PREFIX_PATH="$(brew --prefix qt)" ${{ matrix.cmake_args }}
+          else
+            cmake -B build -S . -G Ninja ${{ matrix.cmake_args }}
+          fi
+
+      - name: Build All Targets
+        run: cmake --build build --parallel
+
+      - name: Execute CTest Suite
+        run: |
+          export QT_QPA_PLATFORM=offscreen
+          ctest --test-dir build --output-on-failure
+
+      - name: Upload UI Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: responsive-screenshots-${{ matrix.os }}
+          path: build/screenshots/*.png
+          if-no-files-found: ignore
+
+  # ── 3. Memory Safety & Sanitizers (ASan + UBSan) ──────────────────────────
+  sanitizers:
+    name: AddressSanitizer & UBSan (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build \
+            qt6-base-dev qt6-declarative-dev \
+            qml6-module-qtquick qml6-module-qtquick-controls \
+            qml6-module-qtquick-layouts libgl1-mesa-dev
+
+      - name: Configure CMake with Sanitizers
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          cmake -B build-asan -S . -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DENABLE_SANITIZERS=ON
+
+      - name: Compile Sanitized Targets
+        run: cmake --build build-asan --parallel
+
+      - name: Run Sanitized Unit & Flow Tests
+        run: |
+          export QT_QPA_PLATFORM=offscreen
+          export ASAN_OPTIONS=detect_leaks=1:abort_on_error=1
+          export UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1
+          ctest --test-dir build-asan --output-on-failure

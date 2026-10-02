@@ -1,0 +1,10 @@
+module qml.components
+CustomButton 1.0 CustomButton.qml
+CustomTextField 1.0 CustomTextField.qml
+GlassCard 1.0 GlassCard.qml
+HeaderBar 1.0 HeaderBar.qml
+ThemeSelector 1.0 ThemeSelector.qml
+AppScaffold 1.0 AppScaffold.qml
+depends QtQuick
+depends QtQuick.Controls
+depends QtQuick.Layouts

@@ -1,0 +1,2 @@
+module QuickCart.Responsive
+singleton Responsive 1.0 Responsive.qml

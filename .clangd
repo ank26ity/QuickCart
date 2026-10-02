@@ -1,0 +1,13 @@
+CompileFlags:
+  Add:
+    - "-I/opt/homebrew/lib/QtCore.framework/Headers"
+    - "-I/opt/homebrew/lib/QtGui.framework/Headers"
+    - "-I/opt/homebrew/lib/QtQuick.framework/Headers"
+    - "-I/opt/homebrew/lib/QtQuickControls2.framework/Headers"
+    - "-I/opt/homebrew/lib/QtNetwork.framework/Headers"
+    - "-I/opt/homebrew/lib/QtConcurrent.framework/Headers"
+    - "-I/opt/homebrew/lib/QtQml.framework/Headers"
+    - "-I/opt/homebrew/include"
+    - "-F/opt/homebrew/lib"
+    - "-isystem"
+    - "/opt/homebrew/include"

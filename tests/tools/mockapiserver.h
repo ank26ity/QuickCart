@@ -1,0 +1,60 @@
+/**
+ * @file mockapiserver.h
+ * @brief Local in-process HTTP mock server for full integration and flow testing.
+ * @layer Tests / Tools (C++ / Qt Network)
+ */
+
+#ifndef MOCKAPISERVER_H
+#define MOCKAPISERVER_H
+
+#include <QtCore/QObject>
+#include <QtCore/QString>
+#include <QtCore/QMap>
+#include <QtCore/QJsonObject>
+#include <QtCore/QJsonArray>
+#include <QtNetwork/QTcpServer>
+#include <QtNetwork/QTcpSocket>
+
+class MockApiServer : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit MockApiServer(QObject *parent = nullptr);
+    ~MockApiServer() override;
+
+    bool start();
+    void stop();
+    QString url() const;
+    quint16 port() const;
+
+    void resetData();
+    void setFailNextRequests(int count, int statusCode = 503);
+    void addOrder(const QJsonObject &order);
+
+signals:
+    void requestReceived(const QString &method, const QString &path);
+
+private slots:
+    void handleNewConnection();
+
+private:
+    void processHttpRequest(QTcpSocket *socket, const QByteArray &rawRequest);
+    void sendResponse(QTcpSocket *socket, int statusCode, const QByteArray &contentType, const QByteArray &body);
+    void sendJsonResponse(QTcpSocket *socket, int statusCode, const QJsonDocument &doc);
+
+    QTcpServer *m_server{nullptr};
+    quint16 m_port{0};
+    int m_failCount{0};
+    int m_failStatusCode{503};
+    QMap<QTcpSocket*, QByteArray> m_buffers;
+
+    // In-memory mock database
+    QMap<QString, QJsonObject> m_users;
+    QMap<QString, QJsonObject> m_shops;
+    QMap<QString, QJsonObject> m_products;
+    QMap<QString, QJsonObject> m_orders;
+    QMap<QString, QString> m_orderClaims; // orderId -> courierId
+};
+
+#endif // MOCKAPISERVER_H

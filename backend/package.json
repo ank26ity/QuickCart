@@ -1,0 +1,23 @@
+{
+  "name": "quickcart-backend",
+  "version": "1.0.0",
+  "description": "QuickCart Hyperlocal Delivery Backend with MongoDB Replica Set",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "migrate": "ts-node src/db/migrations/001_create_collections_and_schemas.ts",
+    "seed": "ts-node src/db/seeds/seed.ts",
+    "test": "ts-node tests/repository.test.ts"
+  },
+  "dependencies": {
+    "mongodb": "^6.14.2",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "typescript": "^5.8.2",
+    "ts-node": "^10.9.2"
+  }
+}

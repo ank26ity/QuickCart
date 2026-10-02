@@ -1,0 +1,9 @@
+module qml.views
+AuthView 1.0 AuthView.qml
+CustomerView 1.0 CustomerView.qml
+ShopkeeperView 1.0 ShopkeeperView.qml
+DeliveryView 1.0 DeliveryView.qml
+AdminView 1.0 AdminView.qml
+depends QtQuick
+depends QtQuick.Controls
+depends QtQuick.Layouts

@@ -1,0 +1,2 @@
+module QuickCart.I18n
+singleton Strings 1.0 Strings.qml

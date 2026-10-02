@@ -1,0 +1,5 @@
+[Format]
+TabWidth: 4
+IndentWidth: 4
+UseTabs: false
+Normalize: true

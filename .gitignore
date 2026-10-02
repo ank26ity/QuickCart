@@ -1,0 +1,12 @@
+build/
+build-*/
+.cache/
+.DS_Store
+*.gcda
+*.gcno
+*.gcov
+compile_commands.json
+*.qmlc
+*.jsc
+node_modules/
+backend/node_modules/
