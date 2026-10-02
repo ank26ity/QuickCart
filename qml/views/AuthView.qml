@@ -13,19 +13,23 @@ Item {
     property string mode: "login" // "login" or "signup"
     property string selectedRole: "customer" // "customer", "shopkeeper", "delivery"
 
-    ScrollView {
+    Flickable {
+        id: authFlickable
         anchors.fill: parent
-        contentWidth: availableWidth
+        contentWidth: width
+        contentHeight: Math.max(height, authContentItem.implicitHeight + (Responsive.isKeyboardVisible ? Responsive.keyboardHeight : Theme.space32))
         clip: true
+        boundsBehavior: Flickable.StopAtBounds
 
         Item {
+            id: authContentItem
             width: Math.min(parent.width, 1100)
             anchors.horizontalCenter: parent.horizontalCenter
             implicitHeight: mainLayout.implicitHeight + (Responsive.isDesktop ? 80 : 40)
 
             RowLayout {
                 id: mainLayout
-                width: parent.width - (Responsive.isDesktop ? 64 : 32)
+                width: parent.width - (Responsive.isDesktop ? 64 : Theme.space32)
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: Responsive.isDesktop ? 40 : 20
@@ -136,7 +140,7 @@ Item {
                 // Auth Form Card (Responsive 440px max width)
                 GlassCard {
                     id: authCard
-                    Layout.preferredWidth: Math.min(parent.width, 440)
+                    Layout.preferredWidth: Math.min(parent.width - Theme.space32, 440)
                     Layout.alignment: Responsive.isDesktop ? Qt.AlignVCenter : Qt.AlignHCenter
                     implicitHeight: cardContent.implicitHeight + 48
                     cardRadius: Theme.radiusLarge

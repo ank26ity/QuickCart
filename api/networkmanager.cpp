@@ -85,6 +85,11 @@ void NetworkManager::prepareRequest(QNetworkRequest &request, const QString &ver
     }
 }
 
+void NetworkManager::retryRequest(const QString &verb, const QString &endpoint, const QByteArray &data, int attempt, ResultCallback callback)
+{
+    sendRequest(verb, endpoint, data, attempt, callback);
+}
+
 void NetworkManager::sendRequest(const QString &verb, const QString &endpoint, const QByteArray &data, int attempt, ResultCallback callback)
 {
     // 1. Check Circuit Breaker

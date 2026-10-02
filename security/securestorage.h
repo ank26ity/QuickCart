@@ -1,20 +1,15 @@
 /**
  * @file securestorage.h
- * @brief Hardware-backed and encrypted credential and token storage interface.
+ * @brief Hardware-backed and AES-256-GCM encrypted credential and token storage interface.
  * @layer Security (Layer 2 - Core Services)
  *
- * Public API Summary:
- * - saveSecret(key, value): Persist encrypted credential (macOS Keychain or AES/HMAC vault).
- * - getSecret(key): Decrypt and retrieve stored credential.
- * - deleteSecret(key): Remove credential by key.
- * - clearAllSecrets(): Wipe all active session tokens and device keys.
- * - saveTokens(accessToken, refreshToken): Store JWT credentials atomically.
- * - accessToken(), refreshToken(): Retrieve current JWT session tokens.
- * - clearTokens(): Remove active authentication tokens.
- * - resetForTesting(): Wipe store for test isolation.
- *
- * Dependencies:
- * - <QtCore/QObject>, <QtCore/QString>, <QtCore/QByteArray>
+ * Cryptographic Architecture:
+ * - Cipher: AES-256
+ * - Mode: GCM (Galois/Counter Mode) authenticated encryption with 96-bit (12-byte) IV and 128-bit (16-byte) tag
+ * - Key Source: Random 256-bit symmetric master key generated via CSPRNG and held in OS Keystore
+ *               (Apple Keychain, Windows Credential Manager, Android Keystore). Never derived from machine GUID.
+ * - Password Key Derivation: PBKDF2-HMAC-SHA256 with 100,000 iterations and unique 128-bit salt.
+ * - Backends: macOS/iOS Keychain, Windows Credential Manager, Android Keystore, and Hardware-Encrypted Vault.
  *
  * Tests:
  * - Covered by tests/cpp/test_securestorage.cpp
@@ -32,6 +27,14 @@ class SecureStorage : public QObject
     Q_OBJECT
 
 public:
+    enum class Backend {
+        PlatformDefault,
+        WindowsCredManager,
+        AndroidKeystore,
+        EncryptedVault
+    };
+    Q_ENUM(Backend)
+
     explicit SecureStorage(QObject *parent = nullptr);
 
     /**
@@ -41,7 +44,6 @@ public:
 
     /**
      * @brief Persist an encrypted secret key-value pair.
-     * Uses platform Keychain when available, with encrypted fallback.
      */
     Q_INVOKABLE bool saveSecret(const QString &key, const QString &value);
 
@@ -51,7 +53,7 @@ public:
     Q_INVOKABLE QString getSecret(const QString &key) const;
 
     /**
-     * @brief Delete a secret from Keychain and encrypted fallback store.
+     * @brief Delete a secret from keystore and encrypted fallback store.
      */
     Q_INVOKABLE bool deleteSecret(const QString &key);
 
@@ -85,6 +87,18 @@ public:
      */
     void resetForTesting();
 
+    /**
+     * @brief Select active backend for deterministic testing across platforms.
+     */
+    void setBackendForTesting(Backend backend);
+    Backend activeBackend() const;
+
+    // Cryptographic Primitives (AES-256-GCM, PBKDF2-SHA256, CSPRNG)
+    static QByteArray encryptAesGcm(const QByteArray &plain, const QByteArray &key, const QByteArray &iv = QByteArray());
+    static QByteArray decryptAesGcm(const QByteArray &cipherWithTagAndIv, const QByteArray &key);
+    static QByteArray deriveKeyPbkdf2(const QString &password, const QByteArray &salt, int iterations = 100000);
+    static QByteArray generateRandomKey(int length = 32);
+
 signals:
     void secretsChanged();
 
@@ -93,23 +107,23 @@ private:
     bool saveToKeychain(const QString &key, const QByteArray &data);
     QByteArray getFromKeychain(const QString &key) const;
     bool deleteFromKeychain(const QString &key);
-#elif defined(Q_OS_WIN)
+#endif
+
     bool saveToWindowsCredManager(const QString &key, const QByteArray &data);
     QByteArray getFromWindowsCredManager(const QString &key) const;
     bool deleteFromWindowsCredManager(const QString &key);
-#elif defined(Q_OS_ANDROID)
+
     bool saveToAndroidKeystore(const QString &key, const QByteArray &data);
     QByteArray getFromAndroidKeystore(const QString &key) const;
     bool deleteFromAndroidKeystore(const QString &key);
-#endif
 
     bool saveToEncryptedStore(const QString &key, const QByteArray &data);
     QByteArray getFromEncryptedStore(const QString &key) const;
     bool deleteFromEncryptedStore(const QString &key);
 
-    QByteArray deriveDeviceKey() const;
-    QByteArray encryptData(const QByteArray &plain, const QByteArray &key) const;
-    QByteArray decryptData(const QByteArray &cipher, const QByteArray &key) const;
+    QByteArray getOrCreateMasterVaultKey() const;
+
+    Backend m_activeBackend{Backend::PlatformDefault};
 };
 
 #endif // SECURESTORAGE_H

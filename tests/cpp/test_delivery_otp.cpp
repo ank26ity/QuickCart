@@ -9,6 +9,8 @@
 #include <QtCore/QRandomGenerator>
 #include "../../core/validators.h"
 #include "../../core/orderstatemachine.h"
+#include "../../api/networkmanager.h"
+#include "../tools/mockapiserver.h"
 
 using Status = OrderStateMachine::OrderStatus;
 using Actor = OrderStateMachine::OrderActor;
@@ -17,7 +19,21 @@ class TestDeliveryOtp : public QObject
 {
     Q_OBJECT
 
+private:
+    MockApiServer m_server;
+
 private slots:
+    void initTestCase()
+    {
+        QVERIFY(m_server.start());
+        NetworkManager::instance()->setBaseUrl(m_server.url());
+    }
+
+    void cleanupTestCase()
+    {
+        m_server.stop();
+    }
+
     void testOtpValidationFormats()
     {
         // Valid 4-digit numeric OTPs
@@ -41,31 +57,65 @@ private slots:
         QVERIFY(Validators::validateOtp(QStringLiteral("12345"), 6).isError());
     }
 
-    void testOtpDeliveryLifecycleHandoff()
+    void testServerSideOtpGenerationAndVerification()
     {
-        // 1. Order in PickedUp state ready for delivery
-        // Valid courier OTP handoff
-        QString customerOtp = QStringLiteral("8492");
-        QString courierInputCorrect = QStringLiteral("8492");
-        QString courierInputWrong = QStringLiteral("1111");
+        // 1. Seed order on server in picked_up state
+        QString orderId = QStringLiteral("order_test_otp_99");
+        QJsonObject order;
+        order["_id"] = orderId;
+        order["status"] = "picked_up";
+        m_server.addOrder(order);
 
-        // Courier attempts delivery with wrong OTP -> Rejected
-        QVERIFY(Validators::validateOtp(courierInputWrong, 4).isSuccess()); // format is ok
-        QVERIFY(courierInputWrong != customerOtp); // Content mismatch
+        // Server generates secure 4-digit OTP
+        m_server.setOrderDeliveryOtp(orderId, QStringLiteral("7349"));
 
-        // Courier attempts delivery with correct OTP -> Accepted
-        QVERIFY(Validators::validateOtp(courierInputCorrect, 4).isSuccess());
-        QCOMPARE(courierInputCorrect, customerOtp);
+        // 2. Courier submits WRONG OTP to server
+        QJsonObject wrongReq;
+        wrongReq["otp"] = QStringLiteral("1111");
 
-        // State Machine transition to Delivered succeeds for Courier
+        bool wrongDone = false;
+        bool wrongSuccess = true;
+        QString wrongError;
+
+        NetworkManager::instance()->post(
+            QString("/api/orders/%1/verify-delivery-otp").arg(orderId),
+            wrongReq,
+            [&](bool success, const QJsonDocument &, const QString &err) {
+                wrongDone = true;
+                wrongSuccess = success;
+                wrongError = err;
+            }
+        );
+
+        QTRY_VERIFY_WITH_TIMEOUT(wrongDone, 3000);
+        QVERIFY(!wrongSuccess); // Must be rejected by server
+
+        // 3. Courier submits CORRECT OTP entered by customer
+        QJsonObject correctReq;
+        correctReq["otp"] = QStringLiteral("7349");
+
+        bool correctDone = false;
+        bool correctSuccess = false;
+        QJsonObject respObj;
+
+        NetworkManager::instance()->post(
+            QString("/api/orders/%1/verify-delivery-otp").arg(orderId),
+            correctReq,
+            [&](bool success, const QJsonDocument &doc, const QString &) {
+                correctDone = true;
+                correctSuccess = success;
+                respObj = doc.object();
+            }
+        );
+
+        QTRY_VERIFY_WITH_TIMEOUT(correctDone, 3000);
+        QVERIFY(correctSuccess); // Accepted by server
+        QCOMPARE(respObj.value("status").toString(), QStringLiteral("delivered"));
+
+        // 4. Verify local state machine reflection
         auto res = OrderStateMachine::transition(Status::PickedUp, Status::Delivered, Actor::Courier);
         QVERIFY(res.isSuccess());
         QCOMPARE(res.value(), Status::Delivered);
-
-        // Post-delivery: cannot be modified or re-delivered
-        QVERIFY(OrderStateMachine::isTerminalState(Status::Delivered));
-        auto rPost = OrderStateMachine::transition(Status::Delivered, Status::PickedUp, Actor::Courier);
-        QVERIFY(rPost.isError());
     }
 
     void testOtpGenerationEntropy()

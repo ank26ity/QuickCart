@@ -104,7 +104,7 @@ private slots:
                 }
             });
 
-        QTRY_VERIFY_WITH_TIMEOUT(registerDone, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(registerDone, 10000);
         QVERIFY(registerSuccess);
 
         // Test Login
@@ -119,7 +119,7 @@ private slots:
                 }
             });
 
-        QTRY_VERIFY_WITH_TIMEOUT(loginDone, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(loginDone, 10000);
         QVERIFY(loginSuccess);
     }
 

@@ -2,6 +2,7 @@
 #include "../api/networkmanager.h"
 #include <QtCore/QJsonDocument>
 #include <QtCore/QThreadPool>
+#include <QtCore/QPointer>
 #include <QtConcurrent/QtConcurrent>
 
 ProductModel::ProductModel(QObject *parent)
@@ -69,22 +70,24 @@ void ProductModel::fetchProductsForShop(const QString &shopId)
 
     QString endpoint = QString("/api/shops/%1").arg(shopId);
 
-    NetworkManager::instance()->get(endpoint, [this](bool success, const QJsonDocument &doc, const QString &err) {
+    QPointer<ProductModel> self(this);
+    NetworkManager::instance()->get(endpoint, [self](bool success, const QJsonDocument &doc, const QString &err) {
         Q_UNUSED(err);
+        if (!self) return;
         if (!success || !doc.isObject()) {
-            beginResetModel();
-            m_products.clear();
-            endResetModel();
-            m_isLoading = false;
-            emit loadingChanged();
-            emit countChanged();
+            self->beginResetModel();
+            self->m_products.clear();
+            self->endResetModel();
+            self->m_isLoading = false;
+            emit self->loadingChanged();
+            emit self->countChanged();
             return;
         }
 
         QJsonObject obj = doc.object();
         QJsonArray itemsArr = obj.value("items").toArray();
 
-        QThreadPool::globalInstance()->start([this, itemsArr]() {
+        QThreadPool::globalInstance()->start([self, itemsArr]() {
             QVector<ProductItemData> newProducts;
             for (const QJsonValue &val : itemsArr) {
                 if (!val.isObject()) continue;
@@ -102,13 +105,15 @@ void ProductModel::fetchProductsForShop(const QString &shopId)
                 newProducts.append(item);
             }
 
-            QMetaObject::invokeMethod(this, [this, newProducts]() {
-                beginResetModel();
-                m_products = newProducts;
-                endResetModel();
-                m_isLoading = false;
-                emit loadingChanged();
-                emit countChanged();
+            if (!self) return;
+            QMetaObject::invokeMethod(self.data(), [self, newProducts]() {
+                if (!self) return;
+                self->beginResetModel();
+                self->m_products = newProducts;
+                self->endResetModel();
+                self->m_isLoading = false;
+                emit self->loadingChanged();
+                emit self->countChanged();
             });
         });
     });

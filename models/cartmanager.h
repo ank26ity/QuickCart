@@ -79,6 +79,7 @@ public:
     Q_INVOKABLE void updateQuantity(const QString &productId, int change);
     Q_INVOKABLE void clearCart();
     Q_INVOKABLE void placeOrder(const QString &address);
+    Q_INVOKABLE void syncServerCalculation();
 
     /**
      * @brief Reset cart state for test isolation.
@@ -91,12 +92,17 @@ signals:
     void errorChanged();
     void orderPlacedSuccess(const QString &orderId);
     void promptStoreMismatch(const QVariantMap &pendingProduct, int pendingMaxStock);
+    void serverCalculated();
 
 private:
     QVector<CartEntry> m_cart;
     bool m_isSubmitting{false};
     QString m_errorMessage;
     double m_deliveryDistanceKm{1.5};
+    qint64 m_serverSubtotalPaise{0};
+    qint64 m_serverDeliveryFeePaise{0};
+    qint64 m_serverTotalPaise{0};
+    bool m_hasServerCalculation{false};
 };
 
 #endif // CARTMANAGER_H

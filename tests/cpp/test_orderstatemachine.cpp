@@ -173,6 +173,87 @@ private slots:
         QVERIFY(r.isError());
         QCOMPARE(r.error().category, ErrorCategory::Conflict);
     }
+
+    void testAllTransitionsAndBranchCoverage()
+    {
+        // 1. Unknown states validation
+        auto rUnk1 = OrderStateMachine::canTransition(Status::Unknown, Status::Pending, Actor::Customer);
+        QVERIFY(rUnk1.isError());
+        QCOMPARE(rUnk1.error().category, ErrorCategory::Validation);
+
+        auto rUnk2 = OrderStateMachine::canTransition(Status::Pending, Status::Unknown, Actor::Customer);
+        QVERIFY(rUnk2.isError());
+        QCOMPARE(rUnk2.error().category, ErrorCategory::Validation);
+
+        // 2. Pending transitions
+        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Accepted, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Accepted, Actor::Customer).isError());
+
+        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Rejected, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Rejected, Actor::Customer).isError());
+
+        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Cancelled, Actor::System).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Cancelled, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Pending, Status::Cancelled, Actor::Courier).isError());
+
+        // 3. Accepted transitions
+        QVERIFY(OrderStateMachine::canTransition(Status::Accepted, Status::Preparing, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Accepted, Status::Preparing, Actor::Courier).isError());
+        QVERIFY(OrderStateMachine::canTransition(Status::Accepted, Status::Cancelled, Actor::Admin).isSuccess());
+
+        // 4. Preparing transitions
+        QVERIFY(OrderStateMachine::canTransition(Status::Preparing, Status::Ready, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Preparing, Status::Ready, Actor::Customer).isError());
+        QVERIFY(OrderStateMachine::canTransition(Status::Preparing, Status::Cancelled, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Preparing, Status::Cancelled, Actor::Merchant).isError());
+
+        // 5. Ready transitions
+        QVERIFY(OrderStateMachine::canTransition(Status::Ready, Status::Assigned, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Ready, Status::Assigned, Actor::Courier).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Ready, Status::Assigned, Actor::Customer).isError());
+
+        QVERIFY(OrderStateMachine::canTransition(Status::Ready, Status::PickedUp, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Ready, Status::PickedUp, Actor::Courier).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Ready, Status::PickedUp, Actor::Customer).isError());
+
+        QVERIFY(OrderStateMachine::canTransition(Status::Ready, Status::Cancelled, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Ready, Status::Cancelled, Actor::Merchant).isError());
+
+        // 6. Assigned transitions
+        QVERIFY(OrderStateMachine::canTransition(Status::Assigned, Status::PickedUp, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Assigned, Status::PickedUp, Actor::Customer).isError());
+
+        QVERIFY(OrderStateMachine::canTransition(Status::Assigned, Status::Ready, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Assigned, Status::Ready, Actor::Courier).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Assigned, Status::Ready, Actor::Customer).isError());
+
+        QVERIFY(OrderStateMachine::canTransition(Status::Assigned, Status::Cancelled, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::Assigned, Status::Cancelled, Actor::Courier).isError());
+
+        // 7. PickedUp transitions
+        QVERIFY(OrderStateMachine::canTransition(Status::PickedUp, Status::Delivered, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::PickedUp, Status::Delivered, Actor::Customer).isError());
+
+        QVERIFY(OrderStateMachine::canTransition(Status::PickedUp, Status::Cancelled, Actor::Admin).isSuccess());
+        QVERIFY(OrderStateMachine::canTransition(Status::PickedUp, Status::Cancelled, Actor::Courier).isError());
+
+        // 8. Arbitrary invalid cross-state jumps (fallthrough to ERR_INVALID_TRANSITION)
+        auto rInv = OrderStateMachine::canTransition(Status::Pending, Status::Delivered, Actor::Admin);
+        QVERIFY(rInv.isError());
+        QCOMPARE(rInv.error().errorCode, QStringLiteral("ERR_INVALID_TRANSITION"));
+
+        auto rInv2 = OrderStateMachine::transition(Status::Preparing, Status::Delivered, Actor::Courier);
+        QVERIFY(rInv2.isError());
+
+        // 9. Aliases in serialization
+        QCOMPARE(OrderStateMachine::statusFromString(QStringLiteral("pickedup")), Status::PickedUp);
+        QCOMPARE(OrderStateMachine::statusFromString(QStringLiteral("canceled")), Status::Cancelled);
+        QCOMPARE(OrderStateMachine::actorFromString(QStringLiteral("shopkeeper")), Actor::Merchant);
+        QCOMPARE(OrderStateMachine::actorFromString(QStringLiteral("delivery")), Actor::Courier);
+        QCOMPARE(OrderStateMachine::actorFromString(QStringLiteral("rider")), Actor::Courier);
+        QCOMPARE(OrderStateMachine::actorFromString(QStringLiteral("system")), Actor::System);
+        QCOMPARE(OrderStateMachine::actorFromString(QStringLiteral("admin")), Actor::Admin);
+    }
 };
 
 QTEST_MAIN(TestOrderStateMachine)

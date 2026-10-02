@@ -61,7 +61,7 @@ public:
     /**
      * Sets the target theme mode persistently.
      */
-    void setMode(const QString &modeStr);
+    Q_INVOKABLE void setMode(const QString &modeStr);
 
     /**
      * Whether the active rendered appearance is dark.

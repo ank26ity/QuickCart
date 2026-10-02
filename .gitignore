@@ -10,3 +10,7 @@ compile_commands.json
 *.jsc
 node_modules/
 backend/node_modules/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile

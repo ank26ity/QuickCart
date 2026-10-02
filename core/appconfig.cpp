@@ -1,6 +1,9 @@
 #include "appconfig.h"
+#include "../api/networkmanager.h"
 #include <QtCore/QCoreApplication>
 #include <QtCore/QProcessEnvironment>
+#include <QtCore/QJsonObject>
+#include <QtCore/QJsonDocument>
 
 static AppConfig *s_appConfigInstance = nullptr;
 
@@ -204,5 +207,22 @@ QString AppConfig::formatMoney(qint64 paise) const
 {
     double rupees = paise / 100.0;
     return QString::asprintf("%.2f", rupees);
+}
+
+void AppConfig::fetchServerConfig()
+{
+    NetworkManager::instance()->get(QStringLiteral("/api/config"), [this](bool success, const QJsonDocument &doc, const QString &) {
+        if (success && doc.isObject()) {
+            QJsonObject obj = doc.object();
+            if (obj.contains(QStringLiteral("deliveryFeePaise"))) {
+                m_baseDeliveryFeePaise = static_cast<qint64>(obj.value(QStringLiteral("deliveryFeePaise")).toVariant().toLongLong());
+            }
+            if (obj.contains(QStringLiteral("freeDeliveryThresholdPaise"))) {
+                m_freeDeliveryThresholdPaise = static_cast<qint64>(obj.value(QStringLiteral("freeDeliveryThresholdPaise")).toVariant().toLongLong());
+            }
+            emit deliveryFeeConfigChanged();
+            emit serverConfigFetched();
+        }
+    });
 }
 

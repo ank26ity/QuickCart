@@ -232,6 +232,110 @@ private slots:
         QColor lightBorder = m_lightTokens[QStringLiteral("inputBorder")];
         logTokenPair("Light", "border/input", lightBorder, "background", lightBg, 3.0);
         QVERIFY2(contrastRatio(lightBorder, lightBg) >= 3.0, "Light border on bg fails WCAG UI 3.0:1");
+    }
+
+    void testSemanticIntentTextContrast()
+    {
+        // Dark theme: semantic text on background and surface
+        QColor darkBg = m_darkTokens[QStringLiteral("background")];
+        QColor darkSurface = m_darkTokens[QStringLiteral("surface")];
+
+        QColor darkPrimaryText = m_darkTokens[QStringLiteral("textPrimaryBrand")];
+        QColor darkDangerText = m_darkTokens[QStringLiteral("textDanger")];
+        QColor darkWarningText = m_darkTokens[QStringLiteral("textWarning")];
+        QColor darkSuccessText = m_darkTokens[QStringLiteral("textSuccess")];
+
+        logTokenPair("Dark", "textPrimaryBrand", darkPrimaryText, "background", darkBg, 4.5);
+        logTokenPair("Dark", "textPrimaryBrand", darkPrimaryText, "surface", darkSurface, 4.5);
+        logTokenPair("Dark", "textDanger", darkDangerText, "background", darkBg, 4.5);
+        logTokenPair("Dark", "textDanger", darkDangerText, "surface", darkSurface, 4.5);
+        logTokenPair("Dark", "textWarning", darkWarningText, "background", darkBg, 4.5);
+        logTokenPair("Dark", "textWarning", darkWarningText, "surface", darkSurface, 4.5);
+        logTokenPair("Dark", "textSuccess", darkSuccessText, "background", darkBg, 4.5);
+        logTokenPair("Dark", "textSuccess", darkSuccessText, "surface", darkSurface, 4.5);
+
+        QVERIFY2(contrastRatio(darkPrimaryText, darkBg) >= 4.5, "Dark textPrimaryBrand on bg fails 4.5:1");
+        QVERIFY2(contrastRatio(darkPrimaryText, darkSurface) >= 4.5, "Dark textPrimaryBrand on surface fails 4.5:1");
+        QVERIFY2(contrastRatio(darkDangerText, darkBg) >= 4.5, "Dark textDanger on bg fails 4.5:1");
+        QVERIFY2(contrastRatio(darkDangerText, darkSurface) >= 4.5, "Dark textDanger on surface fails 4.5:1");
+        QVERIFY2(contrastRatio(darkWarningText, darkBg) >= 4.5, "Dark textWarning on bg fails 4.5:1");
+        QVERIFY2(contrastRatio(darkWarningText, darkSurface) >= 4.5, "Dark textWarning on surface fails 4.5:1");
+        QVERIFY2(contrastRatio(darkSuccessText, darkBg) >= 4.5, "Dark textSuccess on bg fails 4.5:1");
+        QVERIFY2(contrastRatio(darkSuccessText, darkSurface) >= 4.5, "Dark textSuccess on surface fails 4.5:1");
+
+        // Light theme: semantic text on background and surface
+        QColor lightBg = m_lightTokens[QStringLiteral("background")];
+        QColor lightSurface = m_lightTokens[QStringLiteral("surface")];
+
+        QColor lightPrimaryText = m_lightTokens[QStringLiteral("textPrimaryBrand")];
+        QColor lightDangerText = m_lightTokens[QStringLiteral("textDanger")];
+        QColor lightWarningText = m_lightTokens[QStringLiteral("textWarning")];
+        QColor lightSuccessText = m_lightTokens[QStringLiteral("textSuccess")];
+
+        logTokenPair("Light", "textPrimaryBrand", lightPrimaryText, "background", lightBg, 4.5);
+        logTokenPair("Light", "textPrimaryBrand", lightPrimaryText, "surface", lightSurface, 4.5);
+        logTokenPair("Light", "textDanger", lightDangerText, "background", lightBg, 4.5);
+        logTokenPair("Light", "textDanger", lightDangerText, "surface", lightSurface, 4.5);
+        logTokenPair("Light", "textWarning", lightWarningText, "background", lightBg, 4.5);
+        logTokenPair("Light", "textWarning", lightWarningText, "surface", lightSurface, 4.5);
+        logTokenPair("Light", "textSuccess", lightSuccessText, "background", lightBg, 4.5);
+        logTokenPair("Light", "textSuccess", lightSuccessText, "surface", lightSurface, 4.5);
+
+        QVERIFY2(contrastRatio(lightPrimaryText, lightBg) >= 4.5, "Light textPrimaryBrand on bg fails 4.5:1");
+        QVERIFY2(contrastRatio(lightPrimaryText, lightSurface) >= 4.5, "Light textPrimaryBrand on surface fails 4.5:1");
+        QVERIFY2(contrastRatio(lightDangerText, lightBg) >= 4.5, "Light textDanger on bg fails 4.5:1");
+        QVERIFY2(contrastRatio(lightDangerText, lightSurface) >= 4.5, "Light textDanger on surface fails 4.5:1");
+        QVERIFY2(contrastRatio(lightWarningText, lightBg) >= 4.5, "Light textWarning on bg fails 4.5:1");
+        QVERIFY2(contrastRatio(lightWarningText, lightSurface) >= 4.5, "Light textWarning on surface fails 4.5:1");
+        QVERIFY2(contrastRatio(lightSuccessText, lightBg) >= 4.5, "Light textSuccess on bg fails 4.5:1");
+        QVERIFY2(contrastRatio(lightSuccessText, lightSurface) >= 4.5, "Light textSuccess on surface fails 4.5:1");
+    }
+
+    void testFormPlaceholderAndFocusBorders()
+    {
+        // Dark theme: placeholder on inputBackground, focus border, border vs surfaceVariant
+        QColor darkInputBg = m_darkTokens[QStringLiteral("inputBackground")];
+        QColor darkPlaceholder = m_darkTokens[QStringLiteral("inputPlaceholder")];
+        QColor darkBorderFocus = m_darkTokens[QStringLiteral("inputBorderFocus")];
+        QColor darkBorder = m_darkTokens[QStringLiteral("border")];
+        QColor darkSurfaceVariant = m_darkTokens[QStringLiteral("surfaceVariant")];
+
+        logTokenPair("Dark", "placeholder", darkPlaceholder, "inputBg", darkInputBg, 4.5);
+        logTokenPair("Dark", "borderFocus", darkBorderFocus, "inputBg", darkInputBg, 3.0);
+        logTokenPair("Dark", "border", darkBorder, "surfaceVariant", darkSurfaceVariant, 3.0);
+
+        QVERIFY2(contrastRatio(darkPlaceholder, darkInputBg) >= 4.5, "Dark placeholder on inputBg fails 4.5:1");
+        QVERIFY2(contrastRatio(darkBorderFocus, darkInputBg) >= 3.0, "Dark inputBorderFocus on inputBg fails 3.0:1");
+        QVERIFY2(contrastRatio(darkBorder, darkSurfaceVariant) >= 3.0, "Dark border vs surfaceVariant fails 3.0:1");
+
+        // Light theme
+        QColor lightInputBg = m_lightTokens[QStringLiteral("inputBackground")];
+        QColor lightPlaceholder = m_lightTokens[QStringLiteral("inputPlaceholder")];
+        QColor lightBorderFocus = m_lightTokens[QStringLiteral("inputBorderFocus")];
+        QColor lightBorder = m_lightTokens[QStringLiteral("border")];
+        QColor lightSurfaceVariant = m_lightTokens[QStringLiteral("surfaceVariant")];
+
+        logTokenPair("Light", "placeholder", lightPlaceholder, "inputBg", lightInputBg, 4.5);
+        logTokenPair("Light", "borderFocus", lightBorderFocus, "inputBg", lightInputBg, 3.0);
+        logTokenPair("Light", "border", lightBorder, "surfaceVariant", lightSurfaceVariant, 3.0);
+
+        QVERIFY2(contrastRatio(lightPlaceholder, lightInputBg) >= 4.5, "Light placeholder on inputBg fails 4.5:1");
+        QVERIFY2(contrastRatio(lightBorderFocus, lightInputBg) >= 3.0, "Light inputBorderFocus on inputBg fails 3.0:1");
+        QVERIFY2(contrastRatio(lightBorder, lightSurfaceVariant) >= 3.0, "Light border vs surfaceVariant fails 3.0:1");
+    }
+
+    void testDisabledStates()
+    {
+        // Disabled text contrast >= 3.0:1
+        QColor darkBg = m_darkTokens[QStringLiteral("background")];
+        QColor darkDisabledText = m_darkTokens[QStringLiteral("textDisabled")];
+        logTokenPair("Dark", "textDisabled", darkDisabledText, "background", darkBg, 3.0);
+        QVERIFY2(contrastRatio(darkDisabledText, darkBg) >= 3.0, "Dark textDisabled on bg fails 3.0:1");
+
+        QColor lightBg = m_lightTokens[QStringLiteral("background")];
+        QColor lightDisabledText = m_lightTokens[QStringLiteral("textDisabled")];
+        logTokenPair("Light", "textDisabled", lightDisabledText, "background", lightBg, 3.0);
+        QVERIFY2(contrastRatio(lightDisabledText, lightBg) >= 3.0, "Light textDisabled on bg fails 3.0:1");
         printf("\n");
     }
 };

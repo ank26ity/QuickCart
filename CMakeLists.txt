@@ -35,7 +35,26 @@ find_package(Qt6 REQUIRED COMPONENTS
     QuickControls2
     Network
     Concurrent
+    QuickTest
 )
+
+if(ANDROID)
+    include(FetchContent)
+    FetchContent_Declare(
+        android_openssl
+        URL "https://github.com/KDAB/android_openssl/archive/refs/heads/master.zip"
+    )
+    FetchContent_MakeAvailable(android_openssl)
+    include(${android_openssl_SOURCE_DIR}/android_openssl.cmake)
+    set(SECURITY_LIBS "")
+else()
+    find_package(OpenSSL REQUIRED)
+    set(SECURITY_LIBS OpenSSL::Crypto)
+endif()
+
+if(APPLE)
+    list(APPEND SECURITY_LIBS "-framework Security" "-framework CoreFoundation")
+endif()
 
 if(COMMAND qt_policy)
     qt_policy(SET QTP0001 NEW)
@@ -132,10 +151,10 @@ target_link_libraries(QuickCart PRIVATE
     Qt6::QuickControls2
     Qt6::Network
     Qt6::Concurrent
+    ${SECURITY_LIBS}
 )
-
-if(APPLE)
-    target_link_libraries(QuickCart PRIVATE "-framework Security" "-framework CoreFoundation")
+if(ANDROID)
+    add_android_openssl_libraries(QuickCart)
 endif()
 
 target_include_directories(QuickCart PRIVATE
@@ -144,15 +163,11 @@ target_include_directories(QuickCart PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/security
     ${CMAKE_CURRENT_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/models
-    /opt/homebrew/include
-    /opt/homebrew/lib/QtCore.framework/Headers
-    /opt/homebrew/lib/QtGui.framework/Headers
-    /opt/homebrew/lib/QtQuick.framework/Headers
-    /opt/homebrew/lib/QtQuickControls2.framework/Headers
-    /opt/homebrew/lib/QtNetwork.framework/Headers
-    /opt/homebrew/lib/QtConcurrent.framework/Headers
-    /opt/homebrew/lib/QtQml.framework/Headers
 )
+if(APPLE AND EXISTS "/opt/homebrew/include")
+    target_include_directories(QuickCart PRIVATE /opt/homebrew/include)
+endif()
+
 
 include(GNUInstallDirs)
 install(TARGETS QuickCart
@@ -162,8 +177,10 @@ install(TARGETS QuickCart
 )
 
 # ── CTest Test Harness ──────────────────────────────────────────────────────
+if(NOT ANDROID)
 find_package(Qt6 REQUIRED COMPONENTS Test)
 enable_testing()
+
 
 # 1. Automated WCAG Contrast Test
 add_executable(test_contrast tests/cpp/test_contrast.cpp)
@@ -227,10 +244,7 @@ add_executable(test_securestorage
     security/securestorage.cpp
     core/logging.cpp
 )
-target_link_libraries(test_securestorage PRIVATE Qt6::Core Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_securestorage PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_securestorage PRIVATE Qt6::Core Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_securestorage PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security)
 add_test(NAME SecureStorageTest COMMAND test_securestorage)
 
@@ -245,10 +259,7 @@ add_executable(test_apiclient
     core/logging.cpp
     tests/tools/mockapiserver.cpp
 )
-target_link_libraries(test_apiclient PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_apiclient PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_apiclient PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_apiclient PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools)
 add_test(NAME ApiClientTest COMMAND test_apiclient)
 
@@ -267,10 +278,7 @@ add_executable(test_auth_flow
     core/logging.cpp
     tests/tools/mockapiserver.cpp
 )
-target_link_libraries(test_auth_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_auth_flow PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_auth_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_auth_flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools)
 add_test(NAME AuthFlowTest COMMAND test_auth_flow)
 
@@ -288,10 +296,7 @@ add_executable(test_customer_cart_flow
     core/logging.cpp
     tests/tools/mockapiserver.cpp
 )
-target_link_libraries(test_customer_cart_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_customer_cart_flow PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_customer_cart_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_customer_cart_flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools)
 add_test(NAME CustomerCartFlowTest COMMAND test_customer_cart_flow)
 
@@ -307,10 +312,7 @@ add_executable(test_merchant_flow
     core/logging.cpp
     tests/tools/mockapiserver.cpp
 )
-target_link_libraries(test_merchant_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_merchant_flow PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_merchant_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_merchant_flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools)
 add_test(NAME MerchantFlowTest COMMAND test_merchant_flow)
 
@@ -326,10 +328,7 @@ add_executable(test_courier_flow
     core/logging.cpp
     tests/tools/mockapiserver.cpp
 )
-target_link_libraries(test_courier_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_courier_flow PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_courier_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_courier_flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools)
 add_test(NAME CourierFlowTest COMMAND test_courier_flow)
 
@@ -343,10 +342,7 @@ add_executable(test_network_resilience
     core/logging.cpp
     tests/tools/mockapiserver.cpp
 )
-target_link_libraries(test_network_resilience PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_network_resilience PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_network_resilience PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_network_resilience PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools)
 add_test(NAME NetworkResilienceTest COMMAND test_network_resilience)
 
@@ -381,10 +377,7 @@ add_executable(test_product_crud
     core/appconfig.cpp
     core/logging.cpp
 )
-target_link_libraries(test_product_crud PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_product_crud PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_product_crud PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_product_crud PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models)
 add_test(NAME ProductCrudTest COMMAND test_product_crud)
 
@@ -393,9 +386,15 @@ add_executable(test_delivery_otp
     tests/cpp/test_delivery_otp.cpp
     core/validators.cpp
     core/orderstatemachine.cpp
+    core/logging.cpp
+    core/appconfig.cpp
+    api/networkmanager.cpp
+    api/circuitbreaker.cpp
+    security/securestorage.cpp
+    tests/tools/mockapiserver.cpp
 )
-target_link_libraries(test_delivery_otp PRIVATE Qt6::Core Qt6::Test)
-target_include_directories(test_delivery_otp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core)
+target_link_libraries(test_delivery_otp PRIVATE Qt6::Core Qt6::Network Qt6::Test ${SECURITY_LIBS})
+target_include_directories(test_delivery_otp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models)
 add_test(NAME DeliveryOtpTest COMMAND test_delivery_otp)
 
 # 18. Location Fallback Test
@@ -409,10 +408,7 @@ add_executable(test_location_fallback
     core/appconfig.cpp
     core/logging.cpp
 )
-target_link_libraries(test_location_fallback PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_location_fallback PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_location_fallback PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_location_fallback PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models)
 add_test(NAME LocationFallbackTest COMMAND test_location_fallback)
 
@@ -438,10 +434,7 @@ add_executable(test_polling_sync
     core/appconfig.cpp
     core/logging.cpp
 )
-target_link_libraries(test_polling_sync PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_polling_sync PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_polling_sync PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_polling_sync PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models)
 add_test(NAME PollingSyncTest COMMAND test_polling_sync)
 
@@ -458,11 +451,9 @@ add_executable(test_admin_flow
     api/circuitbreaker.cpp
     security/securestorage.cpp
     core/appconfig.cpp
+    tests/tools/mockapiserver.cpp
 )
-target_link_libraries(test_admin_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test)
-if(APPLE)
-    target_link_libraries(test_admin_flow PRIVATE "-framework Security" "-framework CoreFoundation")
-endif()
+target_link_libraries(test_admin_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
 target_include_directories(test_admin_flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models)
 add_test(NAME AdminFlowTest COMMAND test_admin_flow)
 
@@ -477,6 +468,63 @@ target_compile_definitions(test_theme_tokens PRIVATE
 target_link_libraries(test_theme_tokens PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Test)
 target_include_directories(test_theme_tokens PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core)
 add_test(NAME ThemeTokensTest COMMAND test_theme_tokens)
+
+# 23. Qt Quick Test Suite (TestCase for Theme tokens, Router guards, and Role login flow)
+add_executable(test_qml_suite
+    tests/qml/tst_qml_suite.cpp
+    ${CMAKE_BINARY_DIR}/.qt/rcc/qrc_QuickCart_raw_qml_0.cpp
+    ${CMAKE_BINARY_DIR}/.qt/rcc/qrc_qmake_QuickCart.cpp
+    core/thememanager.cpp
+)
+target_compile_definitions(test_qml_suite PRIVATE
+    QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/qml"
+    QUICKCART_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+    QUICKCART_IMPORT_DIR="${CMAKE_BINARY_DIR}"
+)
+target_link_libraries(test_qml_suite PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::QuickTest
+)
+add_test(NAME QmlSuiteTest COMMAND test_qml_suite)
+
+# 24. Domain Models & Framework Deep Coverage Test
+add_executable(test_unit_models_coverage
+    tests/cpp/test_unit_models_coverage.cpp
+    models/cartmanager.cpp
+    models/authservice.cpp
+    models/ordermodel.cpp
+    models/shopmodel.cpp
+    models/productmodel.cpp
+    api/apiclient.cpp
+    api/networkmanager.cpp
+    api/circuitbreaker.cpp
+    security/securestorage.cpp
+    security/permissionmanager.cpp
+    core/orderstatemachine.cpp
+    core/validators.cpp
+    core/appconfig.cpp
+    core/logging.cpp
+    tests/tools/mockapiserver.cpp
+)
+target_link_libraries(test_unit_models_coverage PRIVATE
+    Qt6::Core
+    Qt6::Network
+    Qt6::Concurrent
+    Qt6::Test
+    ${SECURITY_LIBS}
+)
+target_include_directories(test_unit_models_coverage PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/security
+    ${CMAKE_CURRENT_SOURCE_DIR}/api
+    ${CMAKE_CURRENT_SOURCE_DIR}/models
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools
+)
+add_test(NAME UnitModelsCoverageTest COMMAND test_unit_models_coverage)
 
 # 16. Static QML Lint Check via CTest
 find_program(QMLLINT_EXECUTABLE qmllint HINTS /opt/homebrew/bin)
@@ -512,3 +560,5 @@ if(QMLLINT_EXECUTABLE)
             ${CMAKE_CURRENT_SOURCE_DIR}/qml/views/ShopkeeperView.qml
     )
 endif()
+endif() # NOT ANDROID
+

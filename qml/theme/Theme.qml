@@ -57,12 +57,18 @@ QtObject {
     readonly property color textSecondary: root.isDark ? "#cbd5e1" : "#334155"
     readonly property color textMuted: root.isDark ? "#94a3b8" : "#475569"
     readonly property color textInverse: root.isDark ? "#0f172a" : "#ffffff"
+    readonly property color textPrimaryBrand: root.isDark ? "#34d399" : "#047857"
+    readonly property color textDanger: root.isDark ? "#f87171" : "#b91c1c"
+    readonly property color textWarning: root.isDark ? "#fbbf24" : "#b45309"
+    readonly property color textSuccess: root.isDark ? "#34d399" : "#047857"
+    readonly property color textDisabled: root.isDark ? "#64748b" : "#64748b"
 
     // Form Controls & Inputs (Borders >= 3.0:1 on background and surface)
     readonly property color inputBackground: root.isDark ? "#0f172a" : "#ffffff"
     readonly property color inputBorder: root.isDark ? "#64748b" : "#64748b"
     readonly property color inputBorderFocus: root.isDark ? "#10b981" : "#047857"
     readonly property color inputPlaceholder: root.isDark ? "#94a3b8" : "#475569"
+    readonly property color surfaceDisabled: root.isDark ? "#1e293b" : "#e2e8f0"
 
     // Card & Elevation
     readonly property color shadowColor: root.isDark ? Qt.rgba(0.0, 0.0, 0.0, 0.6) : Qt.rgba(0.0, 0.0, 0.0, 0.10)

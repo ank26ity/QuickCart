@@ -43,6 +43,7 @@ int CartManager::itemCount() const
 
 qint64 CartManager::subtotalPaise() const
 {
+    if (m_hasServerCalculation) return m_serverSubtotalPaise;
     qint64 sum = 0;
     for (const CartEntry &entry : m_cart) {
         sum += (entry.pricePaise * entry.quantity);
@@ -53,11 +54,13 @@ qint64 CartManager::subtotalPaise() const
 qint64 CartManager::deliveryFeePaise() const
 {
     if (m_cart.isEmpty()) return 0;
+    if (m_hasServerCalculation) return m_serverDeliveryFeePaise;
     return AppConfig::instance()->calculateDeliveryFeePaise(m_deliveryDistanceKm, subtotalPaise());
 }
 
 qint64 CartManager::totalPaise() const
 {
+    if (m_hasServerCalculation) return m_serverTotalPaise;
     return subtotalPaise() + deliveryFeePaise();
 }
 
@@ -128,6 +131,12 @@ bool CartManager::addItem(const QVariantMap &product, int maxStock)
 {
     QString pId = product.value(QStringLiteral("id")).toString();
     QString pShopId = product.value(QStringLiteral("shopId")).toString();
+
+    if (pId.isEmpty() || pShopId.isEmpty()) {
+        m_errorMessage = QStringLiteral("Invalid product data.");
+        emit errorChanged();
+        return false;
+    }
 
     // 1. Single-Store Cart Rule Check
     if (!m_cart.isEmpty() && m_cart.first().shopId != pShopId) {
@@ -280,7 +289,47 @@ void CartManager::resetForTesting()
     m_cart.clear();
     m_isSubmitting = false;
     m_errorMessage.clear();
+    m_hasServerCalculation = false;
+    m_serverSubtotalPaise = 0;
+    m_serverDeliveryFeePaise = 0;
+    m_serverTotalPaise = 0;
     emit cartChanged();
     emit submittingChanged();
     emit errorChanged();
+}
+
+void CartManager::syncServerCalculation()
+{
+    if (m_cart.isEmpty()) {
+        m_hasServerCalculation = false;
+        m_serverSubtotalPaise = 0;
+        m_serverDeliveryFeePaise = 0;
+        m_serverTotalPaise = 0;
+        emit cartChanged();
+        emit serverCalculated();
+        return;
+    }
+
+    QJsonObject req;
+    QJsonArray itemsArr;
+    for (const CartEntry &entry : m_cart) {
+        QJsonObject item;
+        item[QStringLiteral("productId")] = entry.productId;
+        item[QStringLiteral("quantity")] = entry.quantity;
+        item[QStringLiteral("pricePaise")] = entry.pricePaise;
+        itemsArr.append(item);
+    }
+    req[QStringLiteral("items")] = itemsArr;
+
+    NetworkManager::instance()->post(QStringLiteral("/api/cart/calculate"), req, [this](bool success, const QJsonDocument &doc, const QString &) {
+        if (success && doc.isObject()) {
+            QJsonObject obj = doc.object();
+            m_serverSubtotalPaise = static_cast<qint64>(obj.value(QStringLiteral("subtotalPaise")).toVariant().toLongLong());
+            m_serverDeliveryFeePaise = static_cast<qint64>(obj.value(QStringLiteral("deliveryFeePaise")).toVariant().toLongLong());
+            m_serverTotalPaise = static_cast<qint64>(obj.value(QStringLiteral("totalPaise")).toVariant().toLongLong());
+            m_hasServerCalculation = true;
+            emit cartChanged();
+            emit serverCalculated();
+        }
+    });
 }

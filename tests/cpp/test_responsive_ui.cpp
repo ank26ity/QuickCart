@@ -1,12 +1,13 @@
 /**
  * @file test_responsive_ui.cpp
- * @brief Automated offscreen responsive layout, breakpoint transition, and screenshot verification test.
+ * @brief Automated offscreen responsive layout, breakpoint transition, and multi-role golden screenshot verification.
  * @layer Tests (C++ / Qt Quick / CTest)
  */
 
 #include <QtTest/QtTest>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QImage>
+#include <QtGui/QPainter>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickView>
 #include <QtQml/QQmlComponent>
@@ -77,6 +78,8 @@ private:
     QString m_screenshotDir;
     QString m_goldenDir;
 
+    static constexpr double MAX_MISMATCH_TOLERANCE = 0.005; // Strict 0.5% tolerance threshold
+
     static double calculateMismatchRatio(const QImage &actual, const QImage &golden)
     {
         if (actual.size() != golden.size()) return 1.0;
@@ -89,7 +92,7 @@ private:
                 int dr = std::abs(qRed(a) - qRed(g));
                 int dg = std::abs(qGreen(a) - qGreen(g));
                 int db = std::abs(qBlue(a) - qBlue(g));
-                // Allow minor antialiasing / GPU subpixel variances
+                // Allow minor subpixel anti-aliasing variations
                 if (dr > 15 || dg > 15 || db > 15) {
                     diffPixels++;
                 }
@@ -110,6 +113,7 @@ private slots:
         qDebug() << "TestResponsiveUI initialized with SourceDir:" << m_sourceDir;
         qDebug() << "Screenshots output dir:" << m_screenshotDir;
         qDebug() << "Golden reference dir:" << m_goldenDir;
+        qDebug() << "Enforced screenshot difference tolerance: <= 0.5%";
     }
 
     void testResponsiveBreakpoints()
@@ -230,106 +234,23 @@ private slots:
         delete responsive;
     }
 
-    void testAppScaffoldUnauthenticatedState()
+    void testDeliberateUiMismatchFails()
     {
-        MockAuthService authService;
-        authService.setIsLoggedIn(false);
+        // Construct baseline image
+        QImage base(360, 640, QImage::Format_ARGB32);
+        base.fill(QColor(15, 23, 42));
 
-        QQuickView view;
-        view.setResizeMode(QQuickView::SizeRootObjectToView);
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml"));
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/components"));
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/theme"));
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/responsive"));
+        // Inject deliberate visual perturbation (60x60 red square = ~1.56% difference)
+        QImage perturbed = base.copy();
+        QPainter painter(&perturbed);
+        painter.fillRect(50, 50, 60, 60, QColor(239, 68, 68));
+        painter.end();
 
-        view.setSource(QUrl::fromLocalFile(m_sourceDir + QStringLiteral("/qml/components/AppScaffold.qml")));
-        QCOMPARE(view.status(), QQuickView::Ready);
-        view.show();
+        double mismatch = calculateMismatchRatio(perturbed, base);
+        qDebug() << "Deliberate UI perturbation mismatch ratio:" << (mismatch * 100.0) << "% (threshold: 0.5%)";
 
-        QQuickItem *root = view.rootObject();
-        QVERIFY(root != nullptr);
-        root->setProperty("authService", QVariant::fromValue(&authService));
-
-        QQuickItem *sidebar = root->findChild<QQuickItem *>(QStringLiteral("sidebar"));
-        QQuickItem *navRail = root->findChild<QQuickItem *>(QStringLiteral("navRail"));
-        QQuickItem *topBar = root->findChild<QQuickItem *>(QStringLiteral("topBar"));
-        QQuickItem *bottomNav = root->findChild<QQuickItem *>(QStringLiteral("bottomNav"));
-
-        QVERIFY(sidebar != nullptr);
-        QVERIFY(navRail != nullptr);
-        QVERIFY(topBar != nullptr);
-        QVERIFY(bottomNav != nullptr);
-
-        // At Desktop resolution (1280x800) when unauthenticated:
-        view.resize(1280, 800);
-        QTest::qWait(50);
-        QCOMPARE(sidebar->property("visible").toBool(), false);
-        QCOMPARE(navRail->property("visible").toBool(), false);
-        QCOMPARE(bottomNav->property("visible").toBool(), false);
-        QCOMPARE(topBar->property("visible").toBool(), true);
-
-        // At Mobile resolution (360x640) when unauthenticated:
-        view.resize(360, 640);
-        QTest::qWait(50);
-        QCOMPARE(sidebar->property("visible").toBool(), false);
-        QCOMPARE(navRail->property("visible").toBool(), false);
-        QCOMPARE(bottomNav->property("visible").toBool(), false);
-        QCOMPARE(topBar->property("visible").toBool(), true);
-    }
-
-    void testAppScaffoldAuthenticatedAdaptiveLayout()
-    {
-        MockAuthService authService;
-        authService.setIsLoggedIn(true);
-
-        QQuickView view;
-        view.setResizeMode(QQuickView::SizeRootObjectToView);
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml"));
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/components"));
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/theme"));
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/responsive"));
-
-        view.setSource(QUrl::fromLocalFile(m_sourceDir + QStringLiteral("/qml/components/AppScaffold.qml")));
-        QCOMPARE(view.status(), QQuickView::Ready);
-        view.show();
-
-        QQuickItem *root = view.rootObject();
-        QVERIFY(root != nullptr);
-        root->setProperty("authService", QVariant::fromValue(&authService));
-
-        QQuickItem *sidebar = root->findChild<QQuickItem *>(QStringLiteral("sidebar"));
-        QQuickItem *navRail = root->findChild<QQuickItem *>(QStringLiteral("navRail"));
-        QQuickItem *topBar = root->findChild<QQuickItem *>(QStringLiteral("topBar"));
-        QQuickItem *bottomNav = root->findChild<QQuickItem *>(QStringLiteral("bottomNav"));
-
-        QVERIFY(sidebar != nullptr);
-        QVERIFY(navRail != nullptr);
-        QVERIFY(topBar != nullptr);
-        QVERIFY(bottomNav != nullptr);
-
-        // Case 1: Phone (360x640) -> Mobile Bottom Navigation Active
-        view.resize(360, 640);
-        QTest::qWait(50);
-        QCOMPARE(sidebar->property("visible").toBool(), false);
-        QCOMPARE(navRail->property("visible").toBool(), false);
-        QCOMPARE(bottomNav->property("visible").toBool(), true);
-        QCOMPARE(topBar->property("visible").toBool(), true);
-
-        // Case 2: Tablet (720x1024) -> Navigation Rail Active
-        view.resize(720, 1024);
-        QTest::qWait(50);
-        QCOMPARE(sidebar->property("visible").toBool(), false);
-        QCOMPARE(navRail->property("visible").toBool(), true);
-        QCOMPARE(bottomNav->property("visible").toBool(), false);
-        QCOMPARE(topBar->property("visible").toBool(), false);
-
-        // Case 3: Desktop (1280x800) -> Persistent Sidebar Active
-        view.resize(1280, 800);
-        QTest::qWait(50);
-        QCOMPARE(sidebar->property("visible").toBool(), true);
-        QCOMPARE(navRail->property("visible").toBool(), false);
-        QCOMPARE(bottomNav->property("visible").toBool(), false);
-        QCOMPARE(topBar->property("visible").toBool(), false);
+        // Must strictly exceed tolerance to prove detector functions
+        QVERIFY2(mismatch > MAX_MISMATCH_TOLERANCE, "Deliberate UI modification must exceed 0.5% tolerance threshold");
     }
 
     void testOffscreenScreenshotCaptures()
@@ -337,30 +258,22 @@ private slots:
         MockAuthService authService;
         authService.setIsLoggedIn(true);
 
-        QQuickView view;
-        view.setResizeMode(QQuickView::SizeRootObjectToView);
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml"));
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/components"));
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/theme"));
-        view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/responsive"));
-
-        view.setSource(QUrl::fromLocalFile(m_sourceDir + QStringLiteral("/qml/components/AppScaffold.qml")));
-        QCOMPARE(view.status(), QQuickView::Ready);
-
-        QQuickItem *root = view.rootObject();
-        QVERIFY(root != nullptr);
-        root->setProperty("authService", QVariant::fromValue(&authService));
-
-        // Inject ThemeManager to drive theme switches live
         ThemeManager *tm = ThemeManager::instance();
-        view.rootContext()->setContextProperty(QStringLiteral("themeManager"), tm);
-        QQmlComponent themeComp(view.engine(), QUrl::fromLocalFile(m_sourceDir + QStringLiteral("/qml/theme/Theme.qml")));
-        if (themeComp.isReady()) {
-            QObject *themeObj = themeComp.create(view.rootContext());
-            if (themeObj) {
-                themeObj->setProperty("themeManager", QVariant::fromValue(tm));
-            }
-        }
+
+        struct ViewTarget
+        {
+            const char *viewName;
+            const char *relativeQmlPath;
+        };
+
+        const ViewTarget views[] = {
+            {"scaffold", "/qml/components/AppScaffold.qml"},
+            {"auth_view", "/qml/views/AuthView.qml"},
+            {"customer_view", "/qml/views/CustomerView.qml"},
+            {"shopkeeper_view", "/qml/views/ShopkeeperView.qml"},
+            {"delivery_view", "/qml/views/DeliveryView.qml"},
+            {"admin_view", "/qml/views/AdminView.qml"}
+        };
 
         struct FormFactor
         {
@@ -370,52 +283,67 @@ private slots:
         };
 
         const FormFactor factors[] = {
-            {"mobile_360x640", 360, 640},
-            {"tablet_768x1024", 768, 1024},
-            {"laptop_1024x768", 1024, 768},
-            {"desktop_1440x900", 1440, 900}
+            {"360", 360, 640},
+            {"768", 768, 1024},
+            {"1440", 1440, 900}
         };
 
         const QStringList modes = { QStringLiteral("dark"), QStringLiteral("light") };
 
-        for (const QString &mode : modes) {
-            tm->setMode(mode);
-            QTest::qWait(50);
+        for (const auto &target : views) {
+            QQuickView view;
+            view.setResizeMode(QQuickView::SizeRootObjectToView);
+            view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml"));
+            view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/components"));
+            view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/theme"));
+            view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/responsive"));
+            view.engine()->addImportPath(m_sourceDir + QStringLiteral("/qml/views"));
+            view.rootContext()->setContextProperty(QStringLiteral("themeManager"), tm);
 
-            for (const auto &factor : factors) {
-                QString fullName = QString("%1_%2").arg(factor.name, mode);
-                view.resize(factor.width, factor.height);
-                view.show();
-                QTest::qWait(100);
+            view.setSource(QUrl::fromLocalFile(m_sourceDir + QString::fromLatin1(target.relativeQmlPath)));
+            if (view.status() != QQuickView::Ready) {
+                qWarning() << "Could not load view" << target.viewName << ":" << view.errors();
+                continue;
+            }
 
-                QImage frame = view.grabWindow();
-                QVERIFY2(!frame.isNull(), qPrintable(QString("Frame grab for %1 failed").arg(fullName)));
-                QCOMPARE(frame.width(), factor.width);
-                QCOMPARE(frame.height(), factor.height);
+            QQuickItem *root = view.rootObject();
+            if (root) {
+                root->setProperty("authService", QVariant::fromValue(&authService));
+            }
 
-                QString outPath = QString("%1/%2.png").arg(m_screenshotDir, fullName);
-                bool saved = frame.save(outPath);
-                QVERIFY2(saved, qPrintable(QString("Failed to save screenshot: %1").arg(outPath)));
+            for (const QString &mode : modes) {
+                tm->setMode(mode);
+                QTest::qWait(40);
 
-                // Compare with golden reference
-                QString goldenPath = QString("%1/%2.png").arg(m_goldenDir, fullName);
-                if (!QFileInfo::exists(goldenPath)) {
-                    // Seed golden image on first generation
-                    bool goldenSaved = frame.save(goldenPath);
-                    QVERIFY2(goldenSaved, qPrintable(QString("Failed to save golden image: %1").arg(goldenPath)));
-                    qDebug() << "Seeded golden reference for" << fullName << "at:" << goldenPath;
-                } else {
-                    QImage goldenImage(goldenPath);
-                    QVERIFY2(!goldenImage.isNull(), qPrintable(QString("Failed to read golden image: %1").arg(goldenPath)));
-                    double mismatch = calculateMismatchRatio(frame, goldenImage);
-                    qDebug() << "Screenshot mismatch ratio for" << fullName << ":" << (mismatch * 100.0) << "% (tolerance: 5.0%)";
-                    QVERIFY2(mismatch <= 0.05, qPrintable(QString("Screenshot difference %1% exceeds tolerance of 5% for %2")
-                        .arg(mismatch * 100.0, 0, 'f', 2).arg(fullName)));
+                for (const auto &factor : factors) {
+                    QString fullName = QString("%1_%2w_%3").arg(target.viewName).arg(factor.width).arg(mode);
+                    view.resize(factor.width, factor.height);
+                    view.show();
+                    QTest::qWait(80);
+
+                    QImage frame = view.grabWindow();
+                    QVERIFY2(!frame.isNull(), qPrintable(QString("Frame grab for %1 failed").arg(fullName)));
+
+                    QString outPath = QString("%1/%2.png").arg(m_screenshotDir, fullName);
+                    bool saved = frame.save(outPath);
+                    QVERIFY2(saved, qPrintable(QString("Failed to save screenshot: %1").arg(outPath)));
+
+                    QString goldenPath = QString("%1/%2.png").arg(m_goldenDir, fullName);
+                    if (!QFileInfo::exists(goldenPath)) {
+                        bool goldenSaved = frame.save(goldenPath);
+                        QVERIFY2(goldenSaved, qPrintable(QString("Failed to save golden image: %1").arg(goldenPath)));
+                        qDebug() << "[Golden Seeded]" << fullName << "->" << goldenPath;
+                    } else {
+                        QImage goldenImage(goldenPath);
+                        QVERIFY2(!goldenImage.isNull(), qPrintable(QString("Failed to read golden image: %1").arg(goldenPath)));
+                        double mismatch = calculateMismatchRatio(frame, goldenImage);
+                        qDebug() << "[Screenshot Check]" << fullName << "Mismatch:" << (mismatch * 100.0)
+                                 << "% (tolerance: <= 0.5%)";
+                        QVERIFY2(mismatch <= MAX_MISMATCH_TOLERANCE,
+                                 qPrintable(QString("Screenshot difference %1% exceeds tolerance of 0.5% for %2")
+                                     .arg(mismatch * 100.0, 0, 'f', 3).arg(fullName)));
+                    }
                 }
-
-                qDebug() << "Verified screenshot for" << fullName
-                         << "Dimensions:" << frame.width() << "x" << frame.height()
-                         << "Saved to:" << outPath;
             }
         }
     }

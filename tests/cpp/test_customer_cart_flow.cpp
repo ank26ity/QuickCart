@@ -8,6 +8,7 @@
 #include "../../models/cartmanager.h"
 #include "../../models/shopmodel.h"
 #include "../../api/networkmanager.h"
+#include "../../core/appconfig.h"
 #include "../tools/mockapiserver.h"
 
 class TestCustomerCartFlow : public QObject
@@ -190,6 +191,46 @@ private slots:
 
         cart->clearCart();
         QCOMPARE(cart->itemCount(), 0);
+    }
+
+    void testServerConfigAndPaiseRecomputation()
+    {
+        // 1. Fetch server delivery fee and threshold config
+        AppConfig *config = AppConfig::instance();
+        QSignalSpy configSpy(config, &AppConfig::serverConfigFetched);
+        config->fetchServerConfig();
+
+        QVERIFY(configSpy.wait(3000));
+        QCOMPARE(config->baseDeliveryFeePaise(), 4900LL);
+        QCOMPARE(config->freeDeliveryThresholdPaise(), 49900LL);
+
+        // 2. Add items using integer paise
+        CartManager *cart = CartManager::instance();
+        cart->clearCart();
+
+        QVariantMap p1;
+        p1["id"] = "prod_1";
+        p1["shopId"] = "shop_1";
+        p1["name"] = "Premium Basmati Rice";
+        p1["pricePaise"] = 15000LL; // ₹150.00
+        p1["price"] = 150.0;
+        cart->addItem(p1, 5); // qty 1
+
+        cart->addItem(p1, 5); // qty 2 -> subtotal = 30000 paise (₹300.00)
+
+        // 3. Request server-side recomputation of totals
+        QSignalSpy serverCalcSpy(cart, &CartManager::serverCalculated);
+        cart->syncServerCalculation();
+
+        QVERIFY(serverCalcSpy.wait(3000));
+
+        // Subtotal < 49900 threshold -> 4900 paise delivery fee applied by server
+        QCOMPARE(cart->subtotalPaise(), 30000LL);
+        QCOMPARE(cart->deliveryFeePaise(), 4900LL);
+        QCOMPARE(cart->totalPaise(), 34900LL);
+
+        // Verify currency formatting string
+        QCOMPARE(config->formatMoney(cart->totalPaise()), QStringLiteral("349.00"));
     }
 };
 

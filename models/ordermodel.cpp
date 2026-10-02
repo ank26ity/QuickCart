@@ -9,6 +9,7 @@
 #include "../api/networkmanager.h"
 #include <QtCore/QJsonDocument>
 #include <QtCore/QThreadPool>
+#include <QtCore/QPointer>
 #include <QtConcurrent/QtConcurrent>
 
 OrderModel::OrderModel(QObject *parent)
@@ -134,19 +135,21 @@ void OrderModel::fetchOrders(bool isOnlineRider)
 
     QString endpoint = QString(QStringLiteral("/api/orders?isOnline=%1")).arg(isOnlineRider ? "true" : "false");
 
-    NetworkManager::instance()->get(endpoint, [this](bool success, const QJsonDocument &doc, const QString &err) {
+    QPointer<OrderModel> self(this);
+    NetworkManager::instance()->get(endpoint, [self](bool success, const QJsonDocument &doc, const QString &err) {
         Q_UNUSED(err);
+        if (!self) return;
         if (!success || !doc.isArray()) {
-            beginResetModel();
-            m_orders.clear();
-            endResetModel();
-            m_isLoading = false;
-            emit loadingChanged();
-            emit countChanged();
+            self->beginResetModel();
+            self->m_orders.clear();
+            self->endResetModel();
+            self->m_isLoading = false;
+            emit self->loadingChanged();
+            emit self->countChanged();
             return;
         }
 
-        populateFromJson(doc.array());
+        self->populateFromJson(doc.array());
     });
 }
 
@@ -181,20 +184,22 @@ void OrderModel::updateOrderStatus(const QString &orderId, const QString &nextSt
     QJsonObject body;
     body[QStringLiteral("status")] = nextStatus;
 
-    NetworkManager::instance()->patch(QString(QStringLiteral("/api/orders/%1")).arg(orderId), body, [this, orderId, nextStatus](bool success, const QJsonDocument &doc, const QString &err) {
+    QPointer<OrderModel> self(this);
+    NetworkManager::instance()->patch(QString(QStringLiteral("/api/orders/%1")).arg(orderId), body, [self, orderId, nextStatus](bool success, const QJsonDocument &doc, const QString &err) {
         Q_UNUSED(doc);
+        if (!self) return;
         if (success) {
-            for (auto &o : m_orders) {
+            for (auto &o : self->m_orders) {
                 if (o.id == orderId) {
                     o.status = nextStatus;
                     break;
                 }
             }
-            fetchOrders();
-            emit orderUpdated();
+            self->fetchOrders();
+            emit self->orderUpdated();
         } else {
-            m_errorMessage = err.isEmpty() ? QStringLiteral("Failed to update order status.") : err;
-            emit errorChanged();
+            self->m_errorMessage = err.isEmpty() ? QStringLiteral("Failed to update order status.") : err;
+            emit self->errorChanged();
         }
     });
 }
@@ -206,11 +211,13 @@ void OrderModel::assignRiderToOrder(const QString &orderId, const QString &rider
     QJsonObject body;
     body[QStringLiteral("delivery_boy_id")] = riderId;
 
-    NetworkManager::instance()->patch(QString(QStringLiteral("/api/admin/orders/%1/assign")).arg(orderId), body, [this](bool success, const QJsonDocument &doc, const QString &err) {
+    QPointer<OrderModel> self(this);
+    NetworkManager::instance()->patch(QString(QStringLiteral("/api/admin/orders/%1/assign")).arg(orderId), body, [self](bool success, const QJsonDocument &doc, const QString &err) {
         Q_UNUSED(doc); Q_UNUSED(err);
+        if (!self) return;
         if (success) {
-            fetchOrders();
-            emit orderUpdated();
+            self->fetchOrders();
+            emit self->orderUpdated();
         }
     });
 }

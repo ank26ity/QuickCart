@@ -177,6 +177,16 @@ void MockApiServer::addOrder(const QJsonObject &order)
     m_orders[id] = order;
 }
 
+QString MockApiServer::getOrderDeliveryOtp(const QString &orderId) const
+{
+    return m_orderOtps.value(orderId);
+}
+
+void MockApiServer::setOrderDeliveryOtp(const QString &orderId, const QString &otp)
+{
+    m_orderOtps[orderId] = otp;
+}
+
 void MockApiServer::handleNewConnection()
 {
     while (m_server->hasPendingConnections()) {
@@ -271,6 +281,10 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
     QJsonObject bodyObj = bodyDoc.isObject() ? bodyDoc.object() : QJsonObject();
 
     // ── Endpoints ───────────────────────────────────────────────────────────
+    if (path == "/api/health") {
+        sendJsonResponse(socket, 200, QJsonDocument(QJsonObject{{"status", "ok"}}));
+        return;
+    }
 
     // 1. Auth Login
     if (method == "POST" && (path == "/api/auth/login-request" || path == "/api/auth/login")) {
@@ -303,6 +317,22 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
         resp["refreshToken"] = "mock_jwt_refresh_token_" + QUuid::createUuid().toString(QUuid::WithoutBraces);
         resp["user"] = newUser;
         sendJsonResponse(socket, 200, QJsonDocument(resp));
+        return;
+    }
+
+    // 2B. Auth Refresh Token
+    if (method == "POST" && path == "/api/auth/refresh-token") {
+        QString refToken = bodyObj.value("refreshToken").toString();
+        if (!refToken.isEmpty() && !refToken.contains("expired")) {
+            QJsonObject resp;
+            resp["accessToken"] = "mock_refreshed_access_token_" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+            resp["refreshToken"] = refToken;
+            sendJsonResponse(socket, 200, QJsonDocument(resp));
+            return;
+        }
+        QJsonObject err;
+        err["message"] = "Invalid refresh token";
+        sendJsonResponse(socket, 401, QJsonDocument(err));
         return;
     }
 
@@ -380,6 +410,22 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
             }
         }
         sendJsonResponse(socket, 200, QJsonDocument(shopArr));
+        return;
+    }
+
+    // 4B. Shop Details / Products for Shop
+    if (method == "GET" && path.startsWith("/api/shops/")) {
+        QString sId = path.mid(QStringLiteral("/api/shops/").length());
+        QJsonObject resp;
+        resp["_id"] = sId;
+        QJsonArray itemsArr;
+        for (const auto &prod : m_products) {
+            if (prod.value("shopId").toString() == sId) {
+                itemsArr.append(prod);
+            }
+        }
+        resp["items"] = itemsArr;
+        sendJsonResponse(socket, 200, QJsonDocument(resp));
         return;
     }
 
@@ -480,6 +526,149 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
         config["perKmRate"] = 12.0;
         config["surgeMultiplier"] = 1.0;
         sendJsonResponse(socket, 200, QJsonDocument(config));
+        return;
+    }
+
+    // 12. Server-Side Delivery OTP Verification
+    if (method == "POST" && path.contains("/verify-delivery-otp")) {
+        QStringList parts = path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+        QString orderId = (parts.size() >= 3) ? parts.at(2) : QString();
+        QString submittedOtp = bodyObj.value("otp").toString().trimmed();
+        QString expectedOtp = m_orderOtps.value(orderId);
+
+        if (!expectedOtp.isEmpty() && submittedOtp == expectedOtp) {
+            if (m_orders.contains(orderId)) {
+                QJsonObject o = m_orders[orderId];
+                o["status"] = "delivered";
+                m_orders[orderId] = o;
+            }
+            QJsonObject audit;
+            audit["action"] = "order_delivered";
+            audit["orderId"] = orderId;
+            audit["timestamp"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+            m_auditLogs.append(audit);
+
+            QJsonObject resp;
+            resp["success"] = true;
+            resp["status"] = "delivered";
+            resp["orderId"] = orderId;
+            sendJsonResponse(socket, 200, QJsonDocument(resp));
+            return;
+        }
+
+        QJsonObject err;
+        err["error"] = "Invalid delivery verification code";
+        sendJsonResponse(socket, 400, QJsonDocument(err));
+        return;
+    }
+
+    // 13. Admin Courier Document Approval
+    if (method == "POST" && path.startsWith("/api/admin/courier/") && path.endsWith("/approve")) {
+        QString courierId = path.section('/', 4, 4);
+        for (auto it = m_users.begin(); it != m_users.end(); ++it) {
+            if (it.value().value("_id").toString() == courierId || it.key() == courierId) {
+                QJsonObject u = it.value();
+                u["complianceStatus"] = "approved";
+                *it = u;
+                break;
+            }
+        }
+        QJsonObject audit;
+        audit["action"] = "courier_approved";
+        audit["targetId"] = courierId;
+        audit["timestamp"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+        m_auditLogs.append(audit);
+
+        QJsonObject resp;
+        resp["success"] = true;
+        resp["status"] = "approved";
+        sendJsonResponse(socket, 200, QJsonDocument(resp));
+        return;
+    }
+
+    // 14. Admin User/Shop Suspension
+    if (method == "POST" && path.startsWith("/api/admin/users/") && path.endsWith("/suspend")) {
+        QString userId = path.section('/', 4, 4);
+        for (auto it = m_users.begin(); it != m_users.end(); ++it) {
+            if (it.value().value("_id").toString() == userId || it.key() == userId) {
+                QJsonObject u = it.value();
+                u["status"] = "suspended";
+                *it = u;
+                break;
+            }
+        }
+        QJsonObject audit;
+        audit["action"] = "user_suspended";
+        audit["targetId"] = userId;
+        audit["timestamp"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+        m_auditLogs.append(audit);
+
+        QJsonObject resp;
+        resp["success"] = true;
+        resp["status"] = "suspended";
+        sendJsonResponse(socket, 200, QJsonDocument(resp));
+        return;
+    }
+
+    // 15. Admin Manual Dispatch
+    if (method == "POST" && path.startsWith("/api/admin/orders/") && path.endsWith("/dispatch")) {
+        QString orderId = path.section('/', 4, 4);
+        QString courierId = bodyObj.value("delivery_boy_id").toString();
+        if (m_orders.contains(orderId)) {
+            QJsonObject o = m_orders[orderId];
+            o["status"] = "assigned";
+            o["delivery_boy_id"] = courierId;
+            m_orders[orderId] = o;
+        }
+        QJsonObject audit;
+        audit["action"] = "manual_dispatch";
+        audit["orderId"] = orderId;
+        audit["courierId"] = courierId;
+        audit["timestamp"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+        m_auditLogs.append(audit);
+
+        QJsonObject resp;
+        resp["success"] = true;
+        resp["status"] = "assigned";
+        sendJsonResponse(socket, 200, QJsonDocument(resp));
+        return;
+    }
+
+    // 16. Admin Audit Logs
+    if (method == "GET" && path == "/api/admin/audit-logs") {
+        sendJsonResponse(socket, 200, QJsonDocument(m_auditLogs));
+        return;
+    }
+
+    // 17. Server Config (Paise Delivery Fee & Threshold)
+    if (method == "GET" && path == "/api/config") {
+        QJsonObject conf;
+        conf["deliveryFeePaise"] = 4900;
+        conf["freeDeliveryThresholdPaise"] = 49900;
+        conf["currency"] = "INR";
+        conf["currencySymbol"] = "₹";
+        sendJsonResponse(socket, 200, QJsonDocument(conf));
+        return;
+    }
+
+    // 18. Cart Server-Side Calculation (End-to-end Integer Paise)
+    if (method == "POST" && path == "/api/cart/calculate") {
+        QJsonArray items = bodyObj.value("items").toArray();
+        qint64 subtotalPaise = 0;
+        for (const auto &itVal : items) {
+            QJsonObject it = itVal.toObject();
+            int qty = it.value("quantity").toInt(1);
+            qint64 pricePaise = static_cast<qint64>(it.value("pricePaise").toVariant().toLongLong());
+            subtotalPaise += (qty * pricePaise);
+        }
+        qint64 deliveryFeePaise = (subtotalPaise == 0 || subtotalPaise >= 49900) ? 0 : 4900;
+        qint64 totalPaise = subtotalPaise + deliveryFeePaise;
+
+        QJsonObject resp;
+        resp["subtotalPaise"] = subtotalPaise;
+        resp["deliveryFeePaise"] = deliveryFeePaise;
+        resp["totalPaise"] = totalPaise;
+        sendJsonResponse(socket, 200, QJsonDocument(resp));
         return;
     }
 

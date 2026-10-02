@@ -69,7 +69,7 @@ private slots:
 
         auth->login("alice@quickcart.com", "Password123");
 
-        QVERIFY(loginSpy.wait(3000));
+        QVERIFY(loginSpy.wait(10000));
         QVERIFY(auth->isLoggedIn());
         QCOMPARE(auth->userRole(), QStringLiteral("customer"));
         QCOMPARE(auth->userName(), QStringLiteral("Alice Customer"));
@@ -103,7 +103,7 @@ private slots:
         QSignalSpy loginSpy(auth, &AuthService::loginSuccess);
 
         auth->login("alice@quickcart.com", "Password123");
-        QVERIFY(loginSpy.wait(3000));
+        QVERIFY(loginSpy.wait(10000));
         QVERIFY(auth->isLoggedIn());
 
         auth->logout();

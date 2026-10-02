@@ -61,6 +61,7 @@ public:
     Q_INVOKABLE bool isFeatureEnabled(const QString &featureName) const;
     Q_INVOKABLE void setFeatureFlag(const QString &featureName, bool enabled);
     Q_INVOKABLE QVariantMap allFeatureFlags() const;
+    Q_INVOKABLE void fetchServerConfig();
 
 signals:
     void environmentChanged();
@@ -69,6 +70,7 @@ signals:
     void timeoutChanged();
     void featureFlagsChanged();
     void deliveryFeeConfigChanged();
+    void serverConfigFetched();
 
 private:
     Environment m_env{Environment::Development};
