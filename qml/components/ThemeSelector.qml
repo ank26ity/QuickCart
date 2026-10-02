@@ -90,6 +90,8 @@ RowLayout {
                             }
                         }
 
+                        onIconColorChanged: iconCanvas.requestPaint()
+
                         Connections {
                             target: optRect
                             function onIsSelectedChanged() { iconCanvas.requestPaint(); }

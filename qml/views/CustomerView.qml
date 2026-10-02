@@ -59,6 +59,17 @@ Item {
                     }
 
                     CustomButton {
+                        text: "Bangalore (BLR)"
+                        variant: (customerView.userLat === 12.9716 && customerView.userLng === 77.5946) ? "primary" : "outline"
+                        implicitHeight: 34
+                        onClicked: {
+                            customerView.userLat = 12.9716
+                            customerView.userLng = 77.5946
+                            if (customerView.shopModel) customerView.shopModel.fetchShops(customerView.currentCategory, 12.9716, 77.5946)
+                        }
+                    }
+
+                    CustomButton {
                         text: "South Delhi"
                         variant: (customerView.userLat === 28.5750 && customerView.userLng === 77.2150) ? "primary" : "outline"
                         implicitHeight: 34

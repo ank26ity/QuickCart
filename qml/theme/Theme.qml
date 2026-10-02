@@ -5,12 +5,13 @@ import QtQuick
 QtObject {
     id: root
 
-    // Settable reference to C++ ThemeManager (injected in main.qml)
+    // Settable reference to C++ ThemeManager (injected in main.qml or context)
     property var themeManager: null
+    property string fallbackMode: "dark"
 
-    readonly property bool isDark: root.themeManager ? root.themeManager.isDark : true
+    readonly property string mode: root.themeManager ? root.themeManager.mode : root.fallbackMode
+    readonly property bool isDark: root.themeManager ? root.themeManager.isDark : (root.mode === "dark")
     readonly property bool reducedMotion: root.themeManager ? root.themeManager.reducedMotion : false
-    readonly property string mode: root.themeManager ? root.themeManager.mode : "dark"
 
     // ── Semantic Color Tokens (Strict WCAG AA Verified) ───────────────────
     // Backgrounds & Surfaces
@@ -109,12 +110,16 @@ QtObject {
     function toggle() {
         if (root.themeManager) {
             root.themeManager.toggleTheme()
+        } else {
+            setMode(root.isDark ? "light" : "dark")
         }
     }
 
     function setMode(modeName: string) {
+        var cleanMode = modeName ? modeName.toLowerCase() : "dark"
+        root.fallbackMode = cleanMode
         if (root.themeManager) {
-            root.themeManager.setMode(modeName)
+            root.themeManager.setMode(cleanMode)
         }
     }
 }

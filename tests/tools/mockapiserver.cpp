@@ -151,6 +151,31 @@ void MockApiServer::resetData()
     shop3["rating"] = 4.2;
     m_shops["shop_3"] = shop3;
 
+    // Shop 4 & 5: Central Delhi (at 28.6139, 77.2090)
+    QJsonObject shop4;
+    shop4["_id"] = "shop_4";
+    shop4["name"] = "Delhi Express Mart";
+    shop4["category"] = "groceries";
+    shop4["description"] = "Instant groceries and dairy delivered in 10 mins";
+    shop4["lat"] = 28.6139;
+    shop4["lng"] = 77.2090;
+    shop4["rating"] = 4.9;
+    shop4["address"] = "Connaught Place, New Delhi";
+    shop4["isOpen"] = true;
+    m_shops["shop_4"] = shop4;
+
+    QJsonObject shop5;
+    shop5["_id"] = "shop_5";
+    shop5["name"] = "Apollo Pharmacy Express";
+    shop5["category"] = "pharmacy";
+    shop5["description"] = "Essential medicines & healthcare supplies";
+    shop5["lat"] = 28.6145;
+    shop5["lng"] = 77.2095;
+    shop5["rating"] = 4.8;
+    shop5["address"] = "Barakhamba Road, New Delhi";
+    shop5["isOpen"] = true;
+    m_shops["shop_5"] = shop5;
+
     // Seed test products
     QJsonObject prod1;
     prod1["_id"] = "prod_1";
@@ -178,6 +203,24 @@ void MockApiServer::resetData()
     prod3["stock"] = 5;
     prod3["category"] = "pharmacy";
     m_products["prod_3"] = prod3;
+
+    QJsonObject prod4;
+    prod4["_id"] = "prod_4";
+    prod4["shopId"] = "shop_4";
+    prod4["name"] = "Fresh Milk 1L";
+    prod4["price"] = 65.0;
+    prod4["stock"] = 25;
+    prod4["category"] = "groceries";
+    m_products["prod_4"] = prod4;
+
+    QJsonObject prod5;
+    prod5["_id"] = "prod_5";
+    prod5["shopId"] = "shop_5";
+    prod5["name"] = "Paracetamol 500mg Strip";
+    prod5["price"] = 35.0;
+    prod5["stock"] = 50;
+    prod5["category"] = "pharmacy";
+    m_products["prod_5"] = prod5;
 }
 
 void MockApiServer::addOrder(const QJsonObject &order)
@@ -525,6 +568,47 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
         metrics["activeShops"] = m_shops.size();
         metrics["activeUsers"] = m_users.size();
         sendJsonResponse(socket, 200, QJsonDocument(metrics));
+        return;
+    }
+
+    // 10b. Admin Register Shop
+    if (method == "POST" && path == "/api/admin/shops") {
+        QString sId = QString("shop_%1").arg(m_shops.size() + 1);
+        QJsonObject shop;
+        shop["_id"] = sId;
+        shop["name"] = bodyObj.value("name").toString();
+        shop["category"] = bodyObj.value("category").toString("grocery");
+        shop["description"] = QString("QuickCart Partner Store %1").arg(sId);
+        shop["lat"] = bodyObj.value("latitude").toDouble(12.9716);
+        shop["lng"] = bodyObj.value("longitude").toDouble(77.5946);
+        shop["rating"] = 5.0;
+        shop["address"] = QString("Platform Express Hub, Bangalore");
+        shop["isOpen"] = true;
+        m_shops[sId] = shop;
+
+        QJsonObject resp;
+        resp["success"] = true;
+        resp["shop"] = shop;
+        sendJsonResponse(socket, 201, QJsonDocument(resp));
+        return;
+    }
+
+    // 10c. Admin Provision User
+    if (method == "POST" && path == "/api/admin/users") {
+        QString email = bodyObj.value("email").toString();
+        QJsonObject user;
+        user["_id"] = QString("user_%1").arg(m_users.size() + 1);
+        user["name"] = bodyObj.value("name").toString();
+        user["email"] = email;
+        user["phone"] = bodyObj.value("phone").toString();
+        user["role"] = bodyObj.value("role").toString("customer");
+        user["status"] = "active";
+        m_users[email] = user;
+
+        QJsonObject resp;
+        resp["success"] = true;
+        resp["user"] = user;
+        sendJsonResponse(socket, 201, QJsonDocument(resp));
         return;
     }
 

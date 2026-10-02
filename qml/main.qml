@@ -29,9 +29,19 @@ ApplicationWindow {
     Behavior on color { ColorAnimation { duration: Theme.durationFast } }
 
     Component.onCompleted: {
-        Theme.themeManager = window.themeManager
+        if (window.themeManager) {
+            Theme.themeManager = window.themeManager
+        } else if (typeof themeManager !== "undefined" && themeManager) {
+            Theme.themeManager = themeManager
+        }
         if (mainViewLoader.item) {
             mainViewLoader.injectDependencies(mainViewLoader.item)
+        }
+    }
+
+    onThemeManagerChanged: {
+        if (window.themeManager) {
+            Theme.themeManager = window.themeManager
         }
     }
 
@@ -65,6 +75,13 @@ ApplicationWindow {
                 if (window.permissionManager && window.permissionManager.hasPermission("Catalog:Browse") && window.shopModel) {
                     window.shopModel.fetchShops()
                 }
+            }
+        }
+        onNavIndexChanged: function(index) {
+            if (mainViewLoader.item && "activeTab" in mainViewLoader.item) {
+                if (index === 0) mainViewLoader.item.activeTab = "overview"
+                else if (index === 1) mainViewLoader.item.activeTab = "users"
+                else if (index === 2) mainViewLoader.item.activeTab = "shops"
             }
         }
 

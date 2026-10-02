@@ -14,21 +14,36 @@ Item {
     property var networkManager: null
     property string activeTab: "overview" // "overview", "users", "shops"
 
+    onShopModelChanged: {
+        if (adminView.shopModel) adminView.shopModel.fetchShops()
+    }
+
+    onOrderModelChanged: {
+        if (adminView.orderModel) adminView.orderModel.fetchOrders()
+    }
+
     Component.onCompleted: {
         if (adminView.shopModel) adminView.shopModel.fetchShops()
         if (adminView.orderModel) adminView.orderModel.fetchOrders()
     }
 
-    ScrollView {
+    Flickable {
+        id: adminFlickable
         anchors.fill: parent
-        contentWidth: availableWidth
+        contentWidth: width
+        contentHeight: adminLayout.implicitHeight + Responsive.gutter * 2
         clip: true
+        boundsBehavior: Flickable.StopAtBounds
+
+        ScrollBar.vertical: ScrollBar {
+            policy: ScrollBar.AsNeeded
+        }
 
         ColumnLayout {
-            width: parent.width - Responsive.gutter * 2
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: Responsive.gutter
+            id: adminLayout
+            width: adminFlickable.width - Responsive.gutter * 2
+            x: Responsive.gutter
+            y: Responsive.gutter
             spacing: Responsive.gutter
 
             // Admin Header & Sub-Navigation Tabs
@@ -103,6 +118,7 @@ Item {
                 GlassCard {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 110
+                    implicitHeight: 110
                     cardRadius: Theme.radiusMedium
 
                     ColumnLayout {
@@ -123,6 +139,7 @@ Item {
                 GlassCard {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 110
+                    implicitHeight: 110
                     cardRadius: Theme.radiusMedium
 
                     ColumnLayout {
@@ -143,6 +160,7 @@ Item {
                 GlassCard {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 110
+                    implicitHeight: 110
                     cardRadius: Theme.radiusMedium
 
                     ColumnLayout {
@@ -163,6 +181,7 @@ Item {
                 GlassCard {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 110
+                    implicitHeight: 110
                     cardRadius: Theme.radiusMedium
 
                     ColumnLayout {
@@ -182,12 +201,17 @@ Item {
 
             // User Management Section
             GlassCard {
+                id: userCard
                 Layout.fillWidth: true
                 visible: adminView.activeTab === "users" || adminView.activeTab === "overview"
+                implicitHeight: visible ? (userFormLayout.implicitHeight + Theme.space20 * 2) : 0
                 cardRadius: Theme.radiusLarge
 
                 ColumnLayout {
-                    anchors.fill: parent
+                    id: userFormLayout
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
                     anchors.margins: Theme.space20
                     spacing: Theme.space16
 
@@ -215,7 +239,24 @@ Item {
                         ComboBox {
                             id: adminNewRole
                             Layout.fillWidth: true
+                            implicitHeight: 44
                             model: ["customer", "shopkeeper", "delivery", "admin"]
+                            contentItem: Text {
+                                leftPadding: Theme.space12
+                                rightPadding: Theme.space24
+                                text: adminNewRole.displayText
+                                font.pixelSize: Theme.fontBody
+                                color: Theme.textPrimary
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                            }
+                            background: Rectangle {
+                                implicitHeight: 44
+                                radius: Theme.radiusMedium
+                                color: Theme.inputBackground
+                                border.color: adminNewRole.activeFocus ? Theme.inputBorderFocus : Theme.inputBorder
+                                border.width: 1
+                            }
                         }
                     }
 
@@ -247,14 +288,108 @@ Item {
                 }
             }
 
-            // Shop Management & Geofencing Section
+            // Platform Users Directory (Shown when on Users tab)
             GlassCard {
+                id: usersListCard
                 Layout.fillWidth: true
-                visible: adminView.activeTab === "shops" || adminView.activeTab === "overview"
+                visible: adminView.activeTab === "users"
+                implicitHeight: visible ? (usersLayout.implicitHeight + Theme.space20 * 2) : 0
                 cardRadius: Theme.radiusLarge
 
                 ColumnLayout {
-                    anchors.fill: parent
+                    id: usersLayout
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: Theme.space20
+                    spacing: Theme.space12
+
+                    Text {
+                        text: "👥 Active User Accounts & Credentials"
+                        font.pixelSize: Theme.fontSubheading
+                        font.weight: Font.Bold
+                        color: Theme.textPrimary
+                    }
+
+                    Repeater {
+                        model: [
+                            { name: "System Administrator", email: "admin@quickcart.com", phone: "+919999900000", role: "ADMIN", status: "Active" },
+                            { name: "Bob Merchant", email: "merchant@quickcart.com", phone: "+919876543211", role: "SHOPKEEPER", status: "Active" },
+                            { name: "Charlie Courier", email: "delivery@quickcart.com", phone: "+919876543212", role: "DELIVERY", status: "Active" },
+                            { name: "Alice Customer", email: "customer@quickcart.com", phone: "+919876543210", role: "CUSTOMER", status: "Active" }
+                        ]
+
+                        delegate: Rectangle {
+                            id: uRow
+                            required property var modelData
+                            Layout.fillWidth: true
+                            implicitHeight: 52
+                            radius: Theme.radiusMedium
+                            color: Theme.surfaceVariant
+                            border.color: Theme.border
+                            border.width: 1
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.space16
+                                anchors.rightMargin: Theme.space16
+                                spacing: Theme.space12
+
+                                Text {
+                                    text: uRow.modelData.role === "ADMIN" ? "🛡️" : (uRow.modelData.role === "SHOPKEEPER" ? "🏪" : (uRow.modelData.role === "DELIVERY" ? "🛵" : "👤"))
+                                    font.pixelSize: 18
+                                }
+
+                                ColumnLayout {
+                                    spacing: 2
+                                    Layout.fillWidth: true
+                                    Text {
+                                        text: uRow.modelData.name
+                                        font.pixelSize: Theme.fontBody
+                                        font.weight: Font.Bold
+                                        color: Theme.textPrimary
+                                    }
+                                    Text {
+                                        text: uRow.modelData.email + " • " + uRow.modelData.phone
+                                        font.pixelSize: Theme.fontSmall
+                                        color: Theme.textSecondary
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.preferredWidth: 92
+                                    Layout.preferredHeight: 24
+                                    radius: Theme.radiusSmall
+                                    color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.15)
+                                    border.color: Theme.primary
+                                    border.width: 1
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: uRow.modelData.role
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                        color: Theme.primary
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Shop Management & Geofencing Section
+            GlassCard {
+                id: shopCard
+                Layout.fillWidth: true
+                visible: adminView.activeTab === "shops" || adminView.activeTab === "overview"
+                implicitHeight: visible ? (shopFormLayout.implicitHeight + Theme.space20 * 2) : 0
+                cardRadius: Theme.radiusLarge
+
+                ColumnLayout {
+                    id: shopFormLayout
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
                     anchors.margins: Theme.space20
                     spacing: Theme.space16
 
@@ -279,7 +414,24 @@ Item {
                         ComboBox {
                             id: adminShopCat
                             Layout.fillWidth: true
+                            implicitHeight: 44
                             model: ["grocery", "restaurant", "pharmacy", "electronics"]
+                            contentItem: Text {
+                                leftPadding: Theme.space12
+                                rightPadding: Theme.space24
+                                text: adminShopCat.displayText
+                                font.pixelSize: Theme.fontBody
+                                color: Theme.textPrimary
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                            }
+                            background: Rectangle {
+                                implicitHeight: 44
+                                radius: Theme.radiusMedium
+                                color: Theme.inputBackground
+                                border.color: adminShopCat.activeFocus ? Theme.inputBorderFocus : Theme.inputBorder
+                                border.width: 1
+                            }
                         }
                         CustomTextField { id: adminShopLat; Layout.fillWidth: true; text: "28.6139"; placeholderText: "Latitude" }
                         CustomTextField { id: adminShopLng; Layout.fillWidth: true; text: "77.2090"; placeholderText: "Longitude" }
@@ -304,6 +456,107 @@ Item {
                                         if (adminView.shopModel) adminView.shopModel.fetchShops()
                                         adminShopName.text = ""
                                     })
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Partner Stores Directory (Shown when on Shops tab)
+            GlassCard {
+                id: storesListCard
+                Layout.fillWidth: true
+                visible: adminView.activeTab === "shops"
+                implicitHeight: visible ? (storesLayout.implicitHeight + Theme.space20 * 2) : 0
+                cardRadius: Theme.radiusLarge
+
+                ColumnLayout {
+                    id: storesLayout
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: Theme.space20
+                    spacing: Theme.space12
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: "🏪 Active Partner Stores Directory (" + (adminView.shopModel ? adminView.shopModel.count : 0) + ")"
+                            font.pixelSize: Theme.fontSubheading
+                            font.weight: Font.Bold
+                            color: Theme.textPrimary
+                        }
+                        Item { Layout.fillWidth: true }
+                        CustomButton {
+                            text: "🔄 Refresh"
+                            variant: "outline"
+                            implicitHeight: 32
+                            onClicked: {
+                                if (adminView.shopModel) adminView.shopModel.fetchShops()
+                            }
+                        }
+                    }
+
+                    Repeater {
+                        model: adminView.shopModel
+                        delegate: Rectangle {
+                            id: storeRow
+                            required property string name
+                            required property string category
+                            required property double rating
+                            required property string address
+                            required property bool isOpen
+
+                            Layout.fillWidth: true
+                            implicitHeight: 52
+                            radius: Theme.radiusMedium
+                            color: Theme.surfaceVariant
+                            border.color: Theme.border
+                            border.width: 1
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.space16
+                                anchors.rightMargin: Theme.space16
+                                spacing: Theme.space12
+
+                                Text {
+                                    text: "🏬"
+                                    font.pixelSize: 18
+                                }
+
+                                ColumnLayout {
+                                    spacing: 2
+                                    Layout.fillWidth: true
+                                    Text {
+                                        text: storeRow.name
+                                        font.pixelSize: Theme.fontBody
+                                        font.weight: Font.Bold
+                                        color: Theme.textPrimary
+                                    }
+                                    Text {
+                                        text: storeRow.address + " • " + storeRow.category
+                                        font.pixelSize: Theme.fontSmall
+                                        color: Theme.textSecondary
+                                        elide: Text.ElideRight
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.preferredWidth: 64
+                                    Layout.preferredHeight: 24
+                                    radius: Theme.radiusSmall
+                                    color: storeRow.isOpen ? Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.2) : Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.2)
+                                    border.color: storeRow.isOpen ? Theme.success : Theme.danger
+                                    border.width: 1
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: storeRow.isOpen ? "OPEN" : "CLOSED"
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                        color: storeRow.isOpen ? Theme.success : Theme.danger
+                                    }
                                 }
                             }
                         }

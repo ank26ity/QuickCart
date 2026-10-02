@@ -16,6 +16,34 @@ Item {
     signal logoutClicked()
     signal navIndexChanged(int index)
 
+    readonly property var currentNavModel: {
+        var role = (scaffoldRoot.authService && scaffoldRoot.authService.userRole) ? scaffoldRoot.authService.userRole.toLowerCase() : "customer"
+        if (role === "admin") {
+            return [
+                { label: "Overview", icon: "🛡️", id: 0 },
+                { label: "Users & RBAC", icon: "👥", id: 1 },
+                { label: "Partner Stores", icon: "🏬", id: 2 }
+            ]
+        } else if (role === "shopkeeper") {
+            return [
+                { label: "Storefront", icon: "🏪", id: 0 },
+                { label: "Order Queue", icon: "📦", id: 1 },
+                { label: "Inventory", icon: "🏷️", id: 2 }
+            ]
+        } else if (role === "delivery") {
+            return [
+                { label: "Active Jobs", icon: "🛵", id: 0 },
+                { label: "Trip History", icon: "📋", id: 1 },
+                { label: "Earnings", icon: "💰", id: 2 }
+            ]
+        }
+        return [
+            { label: "Marketplace", icon: "🏬", id: 0 },
+            { label: "My Orders", icon: "📦", id: 1 },
+            { label: "Profile", icon: "👤", id: 2 }
+        ]
+    }
+
     // Update Responsive window dimensions dynamically
     Binding {
         target: Responsive
@@ -91,11 +119,7 @@ Item {
                     spacing: Theme.space8
 
                     Repeater {
-                        model: [
-                            { label: "Marketplace", icon: "🏬", id: 0 },
-                            { label: "My Orders", icon: "📦", id: 1 },
-                            { label: "Profile", icon: "👤", id: 2 }
-                        ]
+                        model: scaffoldRoot.currentNavModel
 
                         delegate: Rectangle {
                             id: navItemRect
@@ -217,11 +241,7 @@ Item {
                 }
 
                 Repeater {
-                    model: [
-                        { icon: "🏬", id: 0, label: "Shop" },
-                        { icon: "📦", id: 1, label: "Orders" },
-                        { icon: "👤", id: 2, label: "User" }
-                    ]
+                    model: scaffoldRoot.currentNavModel
 
                     delegate: Rectangle {
                         id: railItem
@@ -306,11 +326,7 @@ Item {
                     spacing: 0
 
                     Repeater {
-                        model: [
-                            { label: "Browse", icon: "🏬", id: 0 },
-                            { label: "Orders", icon: "📦", id: 1 },
-                            { label: "Account", icon: "👤", id: 2 }
-                        ]
+                        model: scaffoldRoot.currentNavModel
 
                         delegate: Item {
                             id: bNavDelegate
