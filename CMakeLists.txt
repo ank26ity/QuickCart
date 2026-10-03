@@ -469,6 +469,28 @@ target_link_libraries(test_admin_flow PRIVATE Qt6::Core Qt6::Network Qt6::Concur
 target_include_directories(test_admin_flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models)
 add_test(NAME AdminFlowTest COMMAND test_admin_flow)
 
+# 21b. Backend Contract Parity Test (Runs against Mock and Real Backend)
+add_executable(test_contract_backend
+    tests/cpp/test_contract_backend.cpp
+    models/shopmodel.cpp
+    models/cartmanager.cpp
+    models/authservice.cpp
+    models/ordermodel.cpp
+    core/validators.cpp
+    core/orderstatemachine.cpp
+    core/appconfig.cpp
+    core/logging.cpp
+    security/permissionmanager.cpp
+    security/securestorage.cpp
+    api/networkmanager.cpp
+    api/circuitbreaker.cpp
+    api/apiclient.cpp
+    tests/tools/mockapiserver.cpp
+)
+target_link_libraries(test_contract_backend PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
+target_include_directories(test_contract_backend PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api ${CMAKE_CURRENT_SOURCE_DIR}/models ${CMAKE_CURRENT_SOURCE_DIR}/tests/tools)
+add_test(NAME ContractBackendTest COMMAND test_contract_backend)
+
 # 22. Theme Token Completeness Test
 add_executable(test_theme_tokens
     tests/cpp/test_theme_tokens.cpp

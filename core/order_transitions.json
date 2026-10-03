@@ -1,0 +1,118 @@
+{
+  "version": "1.0.0",
+  "statuses": [
+    "pending",
+    "accepted",
+    "preparing",
+    "ready",
+    "assigned",
+    "picked_up",
+    "delivered",
+    "cancelled",
+    "rejected"
+  ],
+  "terminalStatuses": [
+    "delivered",
+    "cancelled",
+    "rejected"
+  ],
+  "actors": [
+    "customer",
+    "merchant",
+    "courier",
+    "admin",
+    "system"
+  ],
+  "transitions": [
+    {
+      "from": "pending",
+      "to": "accepted",
+      "allowedActors": ["merchant", "admin"],
+      "description": "Merchant or admin accepts new order"
+    },
+    {
+      "from": "pending",
+      "to": "rejected",
+      "allowedActors": ["merchant", "admin"],
+      "description": "Merchant or admin rejects order"
+    },
+    {
+      "from": "pending",
+      "to": "cancelled",
+      "allowedActors": ["customer", "admin", "system"],
+      "description": "Customer, admin, or auto-timeout cancels pending order"
+    },
+    {
+      "from": "accepted",
+      "to": "preparing",
+      "allowedActors": ["merchant", "admin"],
+      "description": "Merchant begins preparing items"
+    },
+    {
+      "from": "accepted",
+      "to": "cancelled",
+      "allowedActors": ["merchant", "admin"],
+      "description": "Merchant or admin cancels accepted order"
+    },
+    {
+      "from": "preparing",
+      "to": "ready",
+      "allowedActors": ["merchant", "admin"],
+      "description": "Merchant marks order packed and ready for pickup"
+    },
+    {
+      "from": "preparing",
+      "to": "cancelled",
+      "allowedActors": ["admin"],
+      "description": "Admin cancels order during preparation"
+    },
+    {
+      "from": "ready",
+      "to": "assigned",
+      "allowedActors": ["courier", "admin"],
+      "description": "Courier claims order or admin manually assigns courier"
+    },
+    {
+      "from": "ready",
+      "to": "picked_up",
+      "allowedActors": ["courier", "admin"],
+      "description": "Courier directly picks up ready order"
+    },
+    {
+      "from": "ready",
+      "to": "cancelled",
+      "allowedActors": ["admin"],
+      "description": "Admin cancels ready order"
+    },
+    {
+      "from": "assigned",
+      "to": "picked_up",
+      "allowedActors": ["courier", "admin"],
+      "description": "Assigned courier picks up order from merchant"
+    },
+    {
+      "from": "assigned",
+      "to": "ready",
+      "allowedActors": ["courier", "admin"],
+      "description": "Courier unassigns order back to ready pool"
+    },
+    {
+      "from": "assigned",
+      "to": "cancelled",
+      "allowedActors": ["admin"],
+      "description": "Admin cancels assigned order"
+    },
+    {
+      "from": "picked_up",
+      "to": "delivered",
+      "allowedActors": ["courier", "admin"],
+      "description": "Courier delivers order with OTP verification"
+    },
+    {
+      "from": "picked_up",
+      "to": "cancelled",
+      "allowedActors": ["admin"],
+      "description": "Admin cancels in-transit order due to incident"
+    }
+  ]
+}

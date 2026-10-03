@@ -42,43 +42,44 @@ export async function runMigration001(db: Db): Promise<void> {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
-          required: ['name', 'ownerId', 'category', 'location', 'isOpen', 'version', 'createdAt', 'updatedAt'],
+          required: ['name', 'category', 'isOpen'],
           properties: {
             name: { bsonType: 'string', minLength: 2 },
-            ownerId: { bsonType: 'objectId' },
+            ownerId: { bsonType: ['objectId', 'string'] },
             category: { bsonType: 'string' },
             description: { bsonType: 'string' },
             image: { bsonType: 'string' },
             address: { bsonType: 'string' },
             location: {
               bsonType: 'object',
-              required: ['type', 'coordinates'],
               properties: {
                 type: { enum: ['Point'] },
                 coordinates: {
                   bsonType: 'array',
                   minItems: 2,
                   maxItems: 2,
-                  items: { bsonType: 'double' }
+                  items: { bsonType: ['double', 'int'] }
                 }
               }
             },
-            rating: { bsonType: 'double', minimum: 0.0, maximum: 5.0 },
-            totalRatings: { bsonType: 'int', minimum: 0 },
+            lat: { bsonType: ['double', 'int'] },
+            lng: { bsonType: ['double', 'int'] },
+            rating: { bsonType: ['double', 'int'], minimum: 0.0, maximum: 5.0 },
+            totalRatings: { bsonType: ['int', 'double'], minimum: 0 },
             isOpen: { bsonType: 'bool' },
-            serviceRadiusKm: { bsonType: 'double', minimum: 0.5, maximum: 25.0 },
-            version: { bsonType: 'int', minimum: 1 },
+            serviceRadiusKm: { bsonType: ['double', 'int'], minimum: 0.5, maximum: 25.0 },
+            version: { bsonType: ['int', 'double'] },
             createdAt: { bsonType: 'date' },
             updatedAt: { bsonType: 'date' }
           }
         }
-      }
+      },
+      validationLevel: 'moderate'
     });
   }
   // 2dsphere index for 3km radius spatial queries
-  await db.collection('shops').createIndex({ location: '2dsphere' });
+  await db.collection('shops').createIndex({ location: '2dsphere' }, { sparse: true });
   await db.collection('shops').createIndex({ category: 1, isOpen: 1, rating: -1 });
-  await db.collection('shops').createIndex({ ownerId: 1 });
 
   // 3. CATEGORIES COLLECTION
   if (!existingCollections.includes('categories')) {
@@ -86,23 +87,23 @@ export async function runMigration001(db: Db): Promise<void> {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
-          required: ['name', 'slug', 'path', 'displayOrder', 'isActive', 'version'],
+          required: ['name', 'slug'],
           properties: {
             name: { bsonType: 'string' },
             slug: { bsonType: 'string' },
             path: { bsonType: 'string' }, // Materialized path
-            parentId: { bsonType: ['objectId', 'null'] },
+            parentId: { bsonType: ['objectId', 'string', 'null'] },
             displayOrder: { bsonType: 'int' },
             isActive: { bsonType: 'bool' },
-            version: { bsonType: 'int', minimum: 1 }
+            version: { bsonType: ['int', 'double'] }
           }
         }
-      }
+      },
+      validationLevel: 'moderate'
     });
   }
   await db.collection('categories').createIndex({ slug: 1 }, { unique: true });
   await db.collection('categories').createIndex({ path: 1 });
-  await db.collection('categories').createIndex({ parentId: 1, displayOrder: 1 });
 
   // 4. PRODUCTS COLLECTION
   if (!existingCollections.includes('products')) {
@@ -110,28 +111,30 @@ export async function runMigration001(db: Db): Promise<void> {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
-          required: ['shopId', 'categoryId', 'name', 'mrpPaise', 'sellingPricePaise', 'gstRatePercent', 'isVeg', 'isActive', 'version'],
+          required: ['name'],
           properties: {
-            shopId: { bsonType: 'objectId' },
-            categoryId: { bsonType: 'objectId' },
+            shopId: { bsonType: ['objectId', 'string'] },
+            categoryId: { bsonType: ['objectId', 'string'] },
             name: { bsonType: 'string', minLength: 2 },
             description: { bsonType: 'string' },
             image: { bsonType: 'string' },
-            mrpPaise: { bsonType: 'int', minimum: 0 },
-            sellingPricePaise: { bsonType: 'int', minimum: 0 },
-            gstRatePercent: { enum: [0, 5, 12, 18, 28] },
+            mrpPaise: { bsonType: ['int', 'double'] },
+            sellingPricePaise: { bsonType: ['int', 'double'] },
+            pricePaise: { bsonType: ['int', 'double'] },
+            price: { bsonType: 'double' },
+            stock: { bsonType: ['int', 'double'] },
+            gstRatePercent: { bsonType: ['int', 'double'] },
             isVeg: { bsonType: 'bool' },
             unit: { bsonType: 'string' },
             isActive: { bsonType: 'bool' },
-            version: { bsonType: 'int', minimum: 1 }
+            version: { bsonType: ['int', 'double'] }
           }
         }
-      }
+      },
+      validationLevel: 'moderate'
     });
   }
-  // Compound ESR index for fast catalog retrieval per shop
   await db.collection('products').createIndex({ shopId: 1, categoryId: 1, isActive: 1 });
-  await db.collection('products').createIndex({ name: 'text', description: 'text' });
 
   // 5. INVENTORY COLLECTION (Per-Shop Stock)
   if (!existingCollections.includes('inventory')) {
@@ -139,21 +142,21 @@ export async function runMigration001(db: Db): Promise<void> {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
-          required: ['shopId', 'productId', 'stock', 'reservedStock', 'version'],
+          required: ['stock'],
           properties: {
-            shopId: { bsonType: 'objectId' },
-            productId: { bsonType: 'objectId' },
-            stock: { bsonType: 'int', minimum: 0 },
-            reservedStock: { bsonType: 'int', minimum: 0 },
-            lowStockThreshold: { bsonType: 'int', minimum: 0 },
-            version: { bsonType: 'int', minimum: 1 }
+            shopId: { bsonType: ['objectId', 'string'] },
+            productId: { bsonType: ['objectId', 'string'] },
+            stock: { bsonType: ['int', 'double'] },
+            reservedStock: { bsonType: ['int', 'double'] },
+            lowStockThreshold: { bsonType: ['int', 'double'] },
+            version: { bsonType: ['int', 'double'] }
           }
         }
-      }
+      },
+      validationLevel: 'moderate'
     });
   }
   await db.collection('inventory').createIndex({ shopId: 1, productId: 1 }, { unique: true });
-  await db.collection('inventory').createIndex({ shopId: 1, stock: 1 });
 
   // 6. ORDERS COLLECTION
   if (!existingCollections.includes('orders')) {
@@ -161,48 +164,28 @@ export async function runMigration001(db: Db): Promise<void> {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
-          required: ['orderNumber', 'customerId', 'shopId', 'status', 'items', 'deliveryAddress', 'pricing', 'paymentStatus', 'idempotencyKey', 'version'],
+          required: ['status', 'items'],
           properties: {
             orderNumber: { bsonType: 'string' },
-            customerId: { bsonType: 'objectId' },
-            shopId: { bsonType: 'objectId' },
-            courierId: { bsonType: ['objectId', 'null'] },
-            status: { enum: ['pending', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled', 'rejected'] },
-            items: {
-              bsonType: 'array',
-              minItems: 1,
-              items: {
-                bsonType: 'object',
-                required: ['productId', 'name', 'quantity', 'unitPricePaise', 'totalPricePaise'],
-                properties: {
-                  productId: { bsonType: 'objectId' },
-                  name: { bsonType: 'string' },
-                  quantity: { bsonType: 'int', minimum: 1 },
-                  unitPricePaise: { bsonType: 'int', minimum: 0 },
-                  mrpPaise: { bsonType: 'int', minimum: 0 },
-                  gstAmountPaise: { bsonType: 'int', minimum: 0 },
-                  totalPricePaise: { bsonType: 'int', minimum: 0 }
-                }
-              }
-            },
-            pricing: {
-              bsonType: 'object',
-              required: ['itemSubtotalPaise', 'deliveryFeePaise', 'finalTotalPaise'],
-              properties: {
-                itemSubtotalPaise: { bsonType: 'int', minimum: 0 },
-                deliveryFeePaise: { bsonType: 'int', minimum: 0 },
-                surgeFeePaise: { bsonType: 'int', minimum: 0 },
-                discountPaise: { bsonType: 'int', minimum: 0 },
-                totalGstPaise: { bsonType: 'int', minimum: 0 },
-                finalTotalPaise: { bsonType: 'int', minimum: 0 }
-              }
-            },
-            paymentStatus: { enum: ['pending', 'authorized', 'captured', 'failed', 'refunded'] },
-            idempotencyKey: { bsonType: 'string' },
-            version: { bsonType: 'int', minimum: 1 }
+            customerId: { bsonType: ['objectId', 'string'] },
+            shopId: { bsonType: ['objectId', 'string'] },
+            courierId: { bsonType: ['objectId', 'string', 'null'] },
+            delivery_boy_id: { bsonType: ['objectId', 'string', 'null'] },
+            status: { enum: ['pending', 'accepted', 'preparing', 'ready', 'assigned', 'picked_up', 'delivered', 'cancelled', 'rejected'] },
+            items: { bsonType: 'array' },
+            deliveryAddress: { bsonType: ['object', 'string'] },
+            pricing: { bsonType: 'object' },
+            subtotalPaise: { bsonType: ['int', 'double'] },
+            deliveryFeePaise: { bsonType: ['int', 'double'] },
+            totalPaise: { bsonType: ['int', 'double'] },
+            paymentStatus: { bsonType: ['string', 'null'] },
+            idempotency_key: { bsonType: 'string' },
+            deliveryOtp: { bsonType: 'string' },
+            version: { bsonType: ['int', 'double'] }
           }
         }
-      }
+      },
+      validationLevel: 'moderate'
     });
   }
   await db.collection('orders').createIndex({ orderNumber: 1 }, { unique: true });

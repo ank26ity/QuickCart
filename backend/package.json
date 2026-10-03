@@ -9,15 +9,32 @@
     "dev": "ts-node src/index.ts",
     "migrate": "ts-node src/db/migrations/001_create_collections_and_schemas.ts",
     "seed": "ts-node src/db/seeds/seed.ts",
-    "test": "ts-node tests/repository.test.ts"
+    "test": "ts-node tests/run-all-tests.ts"
   },
   "dependencies": {
+    "argon2": "^0.45.1",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "ioredis": "^6.0.0",
+    "js-yaml": "^5.4.2",
+    "jsonwebtoken": "^9.0.3",
     "mongodb": "^6.14.2",
-    "dotenv": "^16.4.7"
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/ioredis": "^4.28.10",
+    "@types/js-yaml": "^4.0.9",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.13.9",
-    "typescript": "^5.8.2",
-    "ts-node": "^10.9.2"
+    "@types/supertest": "^7.2.1",
+    "@types/ws": "^8.18.2",
+    "mongodb-memory-server": "^11.3.0",
+    "supertest": "^7.3.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
   }
 }

@@ -1,0 +1,921 @@
+openapi: 3.0.3
+info:
+  title: QuickCart Hyperlocal Delivery API
+  version: 1.0.0
+  description: Contract-first REST and Real-time API for QuickCart multi-role delivery platform.
+servers:
+  - url: http://localhost:3000/api
+    description: Local development / Docker backend
+  - url: http://127.0.0.1:{port}/api
+    description: Mock API Server for integration tests
+    variables:
+      port:
+        default: "8080"
+
+paths:
+  /health:
+    get:
+      summary: Service Health Check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  database:
+                    type: string
+                    example: connected
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /config:
+    get:
+      summary: Public delivery configuration
+      responses:
+        '200':
+          description: Configuration settings in integer paise
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppConfigResponse'
+
+  /config/delivery:
+    get:
+      summary: Courier dynamic earnings and fare configuration
+      responses:
+        '200':
+          description: Fare breakdown in integer paise
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourierConfigResponse'
+
+  /auth/login-request:
+    post:
+      summary: Authenticate user by email/phone & password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/signup-request:
+    post:
+      summary: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          description: Email or phone already registered
+
+  /auth/refresh-token:
+    post:
+      summary: Rotate refresh token and obtain new access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Tokens refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/otp/send:
+    post:
+      summary: Request phone OTP verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  example: "+919876543210"
+      responses:
+        '200':
+          description: OTP dispatched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  /auth/otp/verify:
+    post:
+      summary: Verify phone OTP and authenticate session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, otp]
+              properties:
+                phone:
+                  type: string
+                otp:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /auth/compliance:
+    post:
+      summary: Submit courier compliance documentation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courierId]
+              properties:
+                courierId:
+                  type: string
+                vehicleType:
+                  type: string
+                licenseNumber:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: pending
+
+  /courier/documents/upload-url:
+    post:
+      summary: Request pre-signed URL for document upload
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [docType, mimeType, fileSize]
+              properties:
+                docType:
+                  type: string
+                  enum: [driving_license, vehicle_rc, national_id]
+                mimeType:
+                  type: string
+                  enum: [image/jpeg, image/png, application/pdf]
+                fileSize:
+                  type: integer
+                  maximum: 5242880
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl:
+                    type: string
+                  fileKey:
+                    type: string
+
+  /shops:
+    get:
+      summary: Discover nearby shops within boundary
+      parameters:
+        - name: lat
+          in: query
+          schema:
+            type: number
+        - name: lng
+          in: query
+          schema:
+            type: number
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shop'
+
+  /shops/{id}:
+    get:
+      summary: Retrieve shop details and catalog items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+
+  /products:
+    get:
+      summary: List products with optional shop filtering
+      parameters:
+        - name: shopId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+  /cart/calculate:
+    post:
+      summary: Server-computed cart totals with delivery fee in integer paise
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [quantity, pricePaise]
+                    properties:
+                      productId:
+                        type: string
+                      quantity:
+                        type: integer
+                        minimum: 1
+                      pricePaise:
+                        type: integer
+                        format: int64
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartCalculationResponse'
+
+  /orders:
+    get:
+      summary: List user orders
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+    post:
+      summary: Place order atomically with idempotency key
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          description: Idempotency conflict or stock unavailable
+
+  /orders/{id}:
+    patch:
+      summary: Update order lifecycle state
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          description: Order not found
+
+  /orders/{id}/assign:
+    patch:
+      summary: Courier claims ready order (atomic double-claim prevention)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [delivery_boy_id]
+              properties:
+                delivery_boy_id:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '409':
+          description: Order already claimed by another courier
+
+  /orders/{id}/verify-delivery-otp:
+    post:
+      summary: Verify customer delivery OTP on delivery completion
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp]
+              properties:
+                otp:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    example: delivered
+                  orderId:
+                    type: string
+        '400':
+          description: Invalid delivery verification code
+
+  /admin/metrics:
+    get:
+      summary: Platform overview metrics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalOrders:
+                    type: integer
+                  activeShops:
+                    type: integer
+                  activeUsers:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/shops:
+    post:
+      summary: Register and provision new merchant partner shop
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  shop:
+                    $ref: '#/components/schemas/Shop'
+
+  /admin/users:
+    post:
+      summary: Provision new platform user
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, name]
+              properties:
+                email:
+                  type: string
+                name:
+                  type: string
+                phone:
+                  type: string
+                role:
+                  type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user:
+                    type: object
+
+  /admin/courier/{id}/approve:
+    post:
+      summary: Approve courier verification documentation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    example: approved
+
+  /admin/users/{id}/suspend:
+    post:
+      summary: Suspend user or merchant account
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    example: suspended
+
+  /admin/orders/{id}/dispatch:
+    post:
+      summary: Manually assign and dispatch order to courier
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [delivery_boy_id]
+              properties:
+                delivery_boy_id:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    example: assigned
+
+  /admin/audit-logs:
+    get:
+      summary: Fetch append-only audit trail
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    action:
+                      type: string
+                    timestamp:
+                      type: string
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [password]
+      properties:
+        emailOrPhone:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        password:
+          type: string
+
+    SignupRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [customer, shopkeeper, delivery, admin]
+          default: customer
+
+    AuthResponse:
+      type: object
+      required: [accessToken, refreshToken, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          type: object
+          properties:
+            _id:
+              type: string
+            name:
+              type: string
+            email:
+              type: string
+            phone:
+              type: string
+            role:
+              type: string
+            complianceStatus:
+              type: string
+
+    Shop:
+      type: object
+      required: [_id, name]
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        rating:
+          type: number
+        isOpen:
+          type: boolean
+        address:
+          type: string
+        distance:
+          type: number
+
+    Product:
+      type: object
+      required: [_id, name, shopId]
+      properties:
+        _id:
+          type: string
+        shopId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        pricePaise:
+          type: integer
+          format: int64
+        stock:
+          type: integer
+        category:
+          type: string
+
+    CreateOrderRequest:
+      type: object
+      required: [shopId, items, idempotency_key]
+      properties:
+        shopId:
+          type: string
+        deliveryAddress:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+              pricePaise:
+                type: integer
+                format: int64
+        subtotalPaise:
+          type: integer
+          format: int64
+        deliveryFeePaise:
+          type: integer
+          format: int64
+        totalPaise:
+          type: integer
+          format: int64
+        idempotency_key:
+          type: string
+
+    Order:
+      type: object
+      required: [_id, status]
+      properties:
+        _id:
+          type: string
+        customerId:
+          type: string
+        shopId:
+          type: string
+        courierId:
+          type: string
+        delivery_boy_id:
+          type: string
+        status:
+          type: string
+        totalPaise:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+
+    AppConfigResponse:
+      type: object
+      properties:
+        deliveryFeePaise:
+          type: integer
+          format: int64
+          example: 4900
+        freeDeliveryThresholdPaise:
+          type: integer
+          format: int64
+          example: 49900
+        currency:
+          type: string
+          example: INR
+        currencySymbol:
+          type: string
+          example: "₹"
+
+    CourierConfigResponse:
+      type: object
+      properties:
+        baseFeePaise:
+          type: integer
+          format: int64
+          example: 4000
+        perKmRatePaise:
+          type: integer
+          format: int64
+          example: 1200
+        baseFee:
+          type: number
+          example: 40.0
+        perKmRate:
+          type: number
+          example: 12.0
+        surgeMultiplier:
+          type: number
+          example: 1.0
+
+    CartCalculationResponse:
+      type: object
+      required: [subtotalPaise, deliveryFeePaise, totalPaise]
+      properties:
+        subtotalPaise:
+          type: integer
+          format: int64
+        deliveryFeePaise:
+          type: integer
+          format: int64
+        totalPaise:
+          type: integer
+          format: int64
+
+  responses:
+    BadRequestError:
+      description: Bad request or validation failure
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+    UnauthorizedError:
+      description: Authentication token missing or invalid
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              statusCode:
+                type: integer
+                example: 401
+    ForbiddenError:
+      description: Insufficient privileges for action
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              statusCode:
+                type: integer
+                example: 403

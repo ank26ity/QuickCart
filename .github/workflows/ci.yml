@@ -344,3 +344,30 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             exit 1
           }
+
+  # ── 8. Backend & Contract Testing ─────────────────────────────────────────
+  backend-test:
+    name: Backend & Contract Tests (Node.js & MongoDB)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Typecheck Backend (TypeScript)
+        working-directory: backend
+        run: ./node_modules/.bin/tsc -p ./tsconfig.json --noEmit
+
+      - name: Run Backend Integration Test Suite
+        working-directory: backend
+        run: npm test
