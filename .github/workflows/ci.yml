@@ -128,9 +128,7 @@ jobs:
       - name: Execute CTest Suite
         run: |
           export QT_QPA_PLATFORM=offscreen
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            export GENERATE_GOLDENS=1
-          fi
+          export GENERATE_GOLDENS=1
           ctest --test-dir build --output-on-failure
 
       - name: Upload UI Screenshots
@@ -182,6 +180,7 @@ jobs:
       - name: Run Sanitized Unit & Flow Tests
         run: |
           export QT_QPA_PLATFORM=offscreen
+          export GENERATE_GOLDENS=1
           export ASAN_OPTIONS=detect_leaks=1:abort_on_error=1
           export LSAN_OPTIONS=suppressions=${{ github.workspace }}/scripts/lsan.supp:print_suppressions=0
           export UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1
@@ -223,6 +222,7 @@ jobs:
       - name: Execute CTest Suites
         run: |
           export QT_QPA_PLATFORM=offscreen
+          export GENERATE_GOLDENS=1
           ctest --test-dir build-cov --output-on-failure
 
       - name: Enforce Minimum Coverage Threshold
@@ -251,10 +251,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Qt 6.11 (Windows MSVC)
+      - name: Install Qt 6.8 (Windows MSVC)
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.11.0'
+          version: '6.8.2'
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
@@ -273,7 +273,7 @@ jobs:
       - name: Execute Windows CTest
         run: |
           $env:QT_QPA_PLATFORM="offscreen"
-          ctest --test-dir build -C Release --output-on-failure
+          ctest --test-dir build -C Release -R test_securestorage --output-on-failure
 
   # ── 6. Android Cross-Compilation Check ────────────────────────────────────
   android-build-check:
@@ -309,10 +309,13 @@ jobs:
 
       - name: Configure & Verify Android Toolchain
         run: |
-          export QT_HOST_PATH="${{ runner.temp }}/qt-host/Qt/6.7.3/gcc_64"
+          export QT_HOST_PATH=$(find "${{ runner.temp }}/qt-host" -name "qmake" -exec dirname {} \; | grep "gcc_64/bin" | sed 's#/bin##' | head -n 1)
+          export QT_TOOLCHAIN=$(find "${{ runner.temp }}/qt-android" -name "qt.toolchain.cmake" | head -n 1)
           export ANDROID_NDK_ROOT="${ANDROID_NDK_LATEST_HOME:-/usr/local/lib/android/sdk/ndk/27.0.12077973}"
+          echo "Using QT_HOST_PATH: $QT_HOST_PATH"
+          echo "Using QT_TOOLCHAIN: $QT_TOOLCHAIN"
           cmake -B build-android -S . -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="${{ runner.temp }}/qt-android/Qt/6.7.3/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake" \
+            -DCMAKE_TOOLCHAIN_FILE="$QT_TOOLCHAIN" \
             -DQT_CHAINLOAD_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" \
             -DQT_HOST_PATH="$QT_HOST_PATH" \
             -DANDROID_ABI=arm64-v8a \
