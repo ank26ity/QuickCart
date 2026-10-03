@@ -122,4 +122,13 @@ QtObject {
             root.themeManager.setMode(cleanMode)
         }
     }
+
+    function formatPaise(paise) {
+        if (paise === undefined || paise === null) return "₹0.00"
+        var p = Number(paise)
+        var rs = Math.floor(p / 100)
+        var ps = Math.abs(p % 100)
+        return "₹" + rs + "." + (ps < 10 ? "0" : "") + ps
+    }
 }
+

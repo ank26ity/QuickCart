@@ -12,8 +12,8 @@ struct ProductItemData {
     QString shopId;
     QString name;
     QString description;
-    double price;
-    int quantity;
+    qint64 pricePaise{0};
+    int quantity{0};
     QString image;
 };
 

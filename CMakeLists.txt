@@ -483,7 +483,22 @@ add_executable(test_qml_suite
     tests/qml/tst_qml_suite.cpp
     ${CMAKE_BINARY_DIR}/.qt/rcc/qrc_QuickCart_raw_qml_0.cpp
     ${CMAKE_BINARY_DIR}/.qt/rcc/qrc_qmake_QuickCart.cpp
+    core/logging.cpp
+    core/appconfig.cpp
     core/thememanager.cpp
+    core/validators.cpp
+    core/orderstatemachine.cpp
+    security/securestorage.cpp
+    security/permissionmanager.cpp
+    api/networkmanager.cpp
+    api/circuitbreaker.cpp
+    api/apiclient.cpp
+    models/authservice.cpp
+    models/shopmodel.cpp
+    models/productmodel.cpp
+    models/cartmanager.cpp
+    models/ordermodel.cpp
+    tests/tools/mockapiserver.cpp
 )
 target_compile_definitions(test_qml_suite PRIVATE
     QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/qml"
@@ -496,6 +511,10 @@ target_link_libraries(test_qml_suite PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickTest
+    Qt6::QuickControls2
+    Qt6::Network
+    OpenSSL::SSL
+    OpenSSL::Crypto
 )
 add_test(NAME QmlSuiteTest COMMAND test_qml_suite)
 

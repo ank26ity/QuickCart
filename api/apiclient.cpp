@@ -106,7 +106,10 @@ OrderDto ApiClient::parseOrderDto(const QJsonObject &json) {
     dto.shopId = json.value(QStringLiteral("shop_id")).toString();
     dto.courierId = json.value(QStringLiteral("delivery_boy_id")).toString();
     dto.status = json.value(QStringLiteral("status")).toString(QStringLiteral("pending"));
-    dto.total = json.value(QStringLiteral("total")).toDouble(0.0);
+    if (json.contains(QStringLiteral("total_paise")))
+        dto.totalPaise = json.value(QStringLiteral("total_paise")).toInteger();
+    else
+        dto.totalPaise = static_cast<qint64>(std::round(json.value(QStringLiteral("total")).toDouble(0.0) * 100.0));
     dto.createdAt = json.value(QStringLiteral("created_at")).toString();
     dto.items = json.value(QStringLiteral("items")).toArray().toVariantList();
     return dto;
@@ -178,9 +181,9 @@ void ApiClient::createOrder(const OrderCreateDto &order, OrderCallback callback)
     payload[QStringLiteral("shop_id")] = order.shopId;
     payload[QStringLiteral("address")] = order.deliveryAddress;
     payload[QStringLiteral("items")] = QJsonArray::fromVariantList(order.items);
-    payload[QStringLiteral("subtotal")] = order.subtotal;
-    payload[QStringLiteral("delivery_fee")] = order.deliveryFee;
-    payload[QStringLiteral("total")] = order.total;
+    payload[QStringLiteral("subtotal_paise")] = order.subtotalPaise;
+    payload[QStringLiteral("delivery_fee_paise")] = order.deliveryFeePaise;
+    payload[QStringLiteral("total_paise")] = order.totalPaise;
     payload[QStringLiteral("idempotency_key")] =
         order.idempotencyKey.isEmpty() ? generateIdempotencyKey() : order.idempotencyKey;
 

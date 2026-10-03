@@ -48,14 +48,6 @@ private slots:
     }
 
     void testPriceValidation() {
-        QVERIFY(Validators::validatePrice(29.99).isSuccess());
-        QVERIFY(Validators::validatePrice(0.01).isSuccess());
-        QVERIFY(Validators::validatePrice(499999.0).isSuccess());
-
-        QVERIFY(Validators::validatePrice(0.0).isError());
-        QVERIFY(Validators::validatePrice(-15.5).isError());
-        QVERIFY(Validators::validatePrice(600000.0).isError());
-
         // Integer paise validation tests
         QVERIFY(Validators::validatePricePaise(2999).isSuccess());
         QVERIFY(Validators::validatePricePaise(1).isSuccess());

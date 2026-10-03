@@ -206,18 +206,6 @@ QByteArray SecureStorage::generateRandomKey(int length) {
     return key;
 }
 
-QByteArray SecureStorage::deriveKeyPbkdf2(const QString &password, const QByteArray &salt, int iterations) {
-    QByteArray key(32, Qt::Uninitialized);
-    QByteArray passBytes = password.toUtf8();
-    int ret = PKCS5_PBKDF2_HMAC(passBytes.constData(), passBytes.size(),
-                                reinterpret_cast<const unsigned char *>(salt.constData()), salt.size(), iterations,
-                                EVP_sha256(), 32, reinterpret_cast<unsigned char *>(key.data()));
-    if (ret != 1) {
-        return QByteArray();
-    }
-    return key;
-}
-
 QByteArray SecureStorage::encryptAesGcm(const QByteArray &plain, const QByteArray &key, const QByteArray &customIv) {
     if (plain.isEmpty() || key.size() != 32)
         return QByteArray();

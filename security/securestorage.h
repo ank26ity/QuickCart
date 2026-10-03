@@ -6,9 +6,9 @@
  * Cryptographic Architecture:
  * - Cipher: AES-256
  * - Mode: GCM (Galois/Counter Mode) authenticated encryption with 96-bit (12-byte) IV and 128-bit (16-byte) tag
- * - Key Source: Random 256-bit symmetric master key generated via CSPRNG and held in OS Keystore
- *               (Apple Keychain, Windows Credential Manager, Android Keystore). Never derived from machine GUID.
- * - Password Key Derivation: PBKDF2-HMAC-SHA256 with 100,000 iterations and unique 128-bit salt.
+ * - Key Source: Random 256-bit symmetric master key generated via CSPRNG (RAND_bytes) and held in OS Keystore
+ *               (Apple Keychain, Windows Credential Manager, Android Keystore, Linux Secret Service / encrypted vault).
+ *               NEVER derived from machine GUID or machine-id.
  * - Backends: macOS/iOS Keychain, Windows Credential Manager, Android Keystore, and Hardware-Encrypted Vault.
  *
  * Tests:
@@ -87,11 +87,10 @@ public:
     void setBackendForTesting(Backend backend);
     Backend activeBackend() const;
 
-    // Cryptographic Primitives (AES-256-GCM, PBKDF2-SHA256, CSPRNG)
+    // Cryptographic Primitives (AES-256-GCM, CSPRNG)
     static QByteArray encryptAesGcm(const QByteArray &plain, const QByteArray &key,
                                     const QByteArray &iv = QByteArray());
     static QByteArray decryptAesGcm(const QByteArray &cipherWithTagAndIv, const QByteArray &key);
-    static QByteArray deriveKeyPbkdf2(const QString &password, const QByteArray &salt, int iterations = 100000);
     static QByteArray generateRandomKey(int length = 32);
 
 signals:

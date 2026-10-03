@@ -104,3 +104,7 @@ int CircuitBreaker::calculateBackoffMs(int attempt, int baseDelayMs, int maxDela
     int jitter = QRandomGenerator::global()->bounded(capped / 4 + 50);
     return capped + jitter;
 }
+
+void CircuitBreaker::resetAll() {
+    m_circuits.clear();
+}

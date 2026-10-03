@@ -134,9 +134,9 @@ private slots:
         OrderCreateDto createDto;
         createDto.shopId = QStringLiteral("shop_1");
         createDto.deliveryAddress = QStringLiteral("123 Test St");
-        createDto.subtotal = 300.0;
-        createDto.deliveryFee = 50.0;
-        createDto.total = 350.0;
+        createDto.subtotalPaise = 30000;
+        createDto.deliveryFeePaise = 5000;
+        createDto.totalPaise = 35000;
         createDto.idempotencyKey = ApiClient::generateIdempotencyKey();
 
         bool orderDone = false;

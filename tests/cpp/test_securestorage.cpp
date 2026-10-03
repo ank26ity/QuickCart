@@ -1,6 +1,6 @@
 /**
  * @file test_securestorage.cpp
- * @brief Automated unit test suite for SecureStorage AES-256-GCM, PBKDF2, and multi-backend storage.
+ * @brief Automated unit test suite for SecureStorage AES-256-GCM and multi-backend storage.
  * @layer Tests (C++ / Qt Test)
  */
 
@@ -77,23 +77,6 @@ private slots:
         // Both decrypt to identical original plaintext
         QCOMPARE(SecureStorage::decryptAesGcm(cipher1, key), plaintext);
         QCOMPARE(SecureStorage::decryptAesGcm(cipher2, key), plaintext);
-    }
-
-    void testPbkdf2KeyDerivationWith100kIterations() {
-        QString password = QStringLiteral("P@ssw0rd!SuperSecretQuickCart2026");
-        QByteArray salt = "QuickCart_Salt_128bit_Entropy_#49";
-
-        QByteArray key1 = SecureStorage::deriveKeyPbkdf2(password, salt, 100000);
-        QCOMPARE(key1.size(), 32);
-
-        // Deterministic: same password + salt yields identical 256-bit key
-        QByteArray key2 = SecureStorage::deriveKeyPbkdf2(password, salt, 100000);
-        QCOMPARE(key1, key2);
-
-        // Different salt yields completely distinct key
-        QByteArray altSalt = "QuickCart_Salt_Alternative_Entropy_99";
-        QByteArray key3 = SecureStorage::deriveKeyPbkdf2(password, altSalt, 100000);
-        QVERIFY(key1 != key3);
     }
 
     void testWindowsCredentialManagerBackend() {

@@ -39,9 +39,9 @@ struct OrderRecordData {
     QString deliveryBoyId;
     QString address;
     QString status;
-    double subtotal{0.0};
-    double deliveryFee{50.0};
-    double total{0.0};
+    qint64 subtotalPaise{0};
+    qint64 deliveryFeePaise{5000};
+    qint64 totalPaise{0};
     QString createdAt;
     QVariantList items;
 };

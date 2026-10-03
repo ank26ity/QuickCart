@@ -35,15 +35,11 @@ struct CartEntry {
     int quantity{0};
     int maxStock{0};
     QString image;
-    double price() const { return pricePaise / 100.0; }
 };
 
 class CartManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(int itemCount READ itemCount NOTIFY cartChanged)
-    Q_PROPERTY(double subtotal READ subtotal NOTIFY cartChanged)
-    Q_PROPERTY(double deliveryFee READ deliveryFee NOTIFY cartChanged)
-    Q_PROPERTY(double total READ total NOTIFY cartChanged)
     Q_PROPERTY(qint64 subtotalPaise READ subtotalPaise NOTIFY cartChanged)
     Q_PROPERTY(qint64 deliveryFeePaise READ deliveryFeePaise NOTIFY cartChanged)
     Q_PROPERTY(qint64 totalPaise READ totalPaise NOTIFY cartChanged)
@@ -58,10 +54,6 @@ public:
     static CartManager *instance();
 
     int itemCount() const;
-    double subtotal() const;
-    double deliveryFee() const;
-    double total() const;
-
     qint64 subtotalPaise() const;
     qint64 deliveryFeePaise() const;
     qint64 totalPaise() const;

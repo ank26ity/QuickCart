@@ -60,6 +60,9 @@ QString AuthService::userPhone() const {
 }
 
 QString AuthService::userRole() const {
+    if (!m_isLoggedIn) {
+        return QString();
+    }
     return m_userObj.value(QStringLiteral("role")).toString(QStringLiteral("customer")).toLower();
 }
 

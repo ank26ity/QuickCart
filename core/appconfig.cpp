@@ -178,11 +178,6 @@ qint64 AppConfig::calculateDeliveryFeePaise(double distanceKm, qint64 subtotalPa
     return m_baseDeliveryFeePaise + distanceFee;
 }
 
-double AppConfig::calculateDeliveryFee(double distanceKm, double subtotal) const {
-    qint64 subtotalPaise = static_cast<qint64>(std::round(subtotal * 100.0));
-    return calculateDeliveryFeePaise(distanceKm, subtotalPaise) / 100.0;
-}
-
 QString AppConfig::formatMoney(qint64 paise) const {
     double rupees = paise / 100.0;
     return QString::asprintf("%.2f", rupees);

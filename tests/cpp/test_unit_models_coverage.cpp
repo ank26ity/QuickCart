@@ -61,9 +61,6 @@ private slots:
         QCOMPARE(cart->subtotalPaise(), 0);
         QCOMPARE(cart->deliveryFeePaise(), 0);
         QCOMPARE(cart->totalPaise(), 0);
-        QCOMPARE(cart->subtotal(), 0.0);
-        QCOMPARE(cart->deliveryFee(), 0.0);
-        QCOMPARE(cart->total(), 0.0);
         QCOMPARE(cart->isSubmitting(), false);
         QVERIFY(cart->items().isEmpty());
         QVERIFY(cart->shopId().isEmpty());
@@ -78,7 +75,6 @@ private slots:
         item1[QStringLiteral("id")] = QStringLiteral("p1");
         item1[QStringLiteral("shopId")] = QStringLiteral("shop_1");
         item1[QStringLiteral("name")] = QStringLiteral("Organic Apples");
-        item1[QStringLiteral("price")] = 150.0;
         item1[QStringLiteral("pricePaise")] = 15000;
         item1[QStringLiteral("quantity")] = 10;
 
@@ -86,10 +82,8 @@ private slots:
         QCOMPARE(cart->itemCount(), 1);
         QCOMPARE(cart->shopId(), QStringLiteral("shop_1"));
         QCOMPARE(cart->subtotalPaise(), 15000);
-        QCOMPARE(cart->subtotal(), 150.0);
         QVERIFY(cart->deliveryFeePaise() > 0);
         QCOMPARE(cart->totalPaise(), cart->subtotalPaise() + cart->deliveryFeePaise());
-        QCOMPARE(cart->total(), cart->totalPaise() / 100.0);
 
         // Update quantity
         cart->updateQuantity(QStringLiteral("p1"), 1); // 1 + 1 = 2
@@ -142,7 +136,7 @@ private slots:
         p[QStringLiteral("shop_id")] = QStringLiteral("s1");
         p[QStringLiteral("name")] = QStringLiteral("Fresh Milk");
         p[QStringLiteral("description")] = QStringLiteral("1 Liter Pack");
-        p[QStringLiteral("price")] = 65.0;
+        p[QStringLiteral("price_paise")] = 6500;
         p[QStringLiteral("quantity")] = 8;
         p[QStringLiteral("image")] = QStringLiteral("milk.png");
         arr.append(p);
@@ -155,7 +149,7 @@ private slots:
         QCOMPARE(model.data(idx, ProductModel::ShopIdRole).toString(), QStringLiteral("s1"));
         QCOMPARE(model.data(idx, ProductModel::NameRole).toString(), QStringLiteral("Fresh Milk"));
         QCOMPARE(model.data(idx, ProductModel::DescriptionRole).toString(), QStringLiteral("1 Liter Pack"));
-        QCOMPARE(model.data(idx, ProductModel::PriceRole).toDouble(), 65.0);
+        QCOMPARE(model.data(idx, ProductModel::PriceRole).toLongLong(), 6500LL);
         QCOMPARE(model.data(idx, ProductModel::QuantityRole).toInt(), 8);
         QCOMPARE(model.data(idx, ProductModel::ImageRole).toString(), QStringLiteral("milk.png"));
         QCOMPARE(model.data(idx, ProductModel::IsLowStockRole).toBool(), false);
@@ -175,13 +169,13 @@ private slots:
         QJsonObject newP;
         newP[QStringLiteral("id")] = QStringLiteral("prod_test_crud");
         newP[QStringLiteral("name")] = QStringLiteral("Organic Bread");
-        newP[QStringLiteral("price")] = 45.0;
+        newP[QStringLiteral("price_paise")] = 4500;
         newP[QStringLiteral("quantity")] = 12;
         model.addProduct(newP);
         QVERIFY(model.count() >= 2);
 
         QJsonObject updP;
-        updP[QStringLiteral("price")] = 50.0;
+        updP[QStringLiteral("price_paise")] = 5000;
         QVERIFY(model.updateProduct(QStringLiteral("prod_test_crud"), updP));
         QVERIFY(!model.updateProduct(QStringLiteral("nonexistent"), updP));
 
@@ -257,9 +251,9 @@ private slots:
         o[QStringLiteral("delivery_boy_id")] = QStringLiteral("rider_1");
         o[QStringLiteral("address")] = QStringLiteral("MG Road");
         o[QStringLiteral("status")] = QStringLiteral("pending");
-        o[QStringLiteral("subtotal")] = 200.0;
-        o[QStringLiteral("delivery_fee")] = 40.0;
-        o[QStringLiteral("total")] = 240.0;
+        o[QStringLiteral("subtotal_paise")] = 20000;
+        o[QStringLiteral("delivery_fee_paise")] = 4000;
+        o[QStringLiteral("total_paise")] = 24000;
         o[QStringLiteral("created_at")] = QStringLiteral("2026-10-02T12:00:00Z");
         o[QStringLiteral("items")] = QJsonArray();
         arr.append(o);
@@ -276,9 +270,9 @@ private slots:
         QCOMPARE(model.data(idx, OrderModel::DeliveryBoyIdRole).toString(), QStringLiteral("rider_1"));
         QCOMPARE(model.data(idx, OrderModel::AddressRole).toString(), QStringLiteral("MG Road"));
         QCOMPARE(model.data(idx, OrderModel::StatusRole).toString(), QStringLiteral("pending"));
-        QCOMPARE(model.data(idx, OrderModel::SubtotalRole).toDouble(), 200.0);
-        QCOMPARE(model.data(idx, OrderModel::DeliveryFeeRole).toDouble(), 40.0);
-        QCOMPARE(model.data(idx, OrderModel::TotalRole).toDouble(), 240.0);
+        QCOMPARE(model.data(idx, OrderModel::SubtotalRole).toLongLong(), 20000LL);
+        QCOMPARE(model.data(idx, OrderModel::DeliveryFeeRole).toLongLong(), 4000LL);
+        QCOMPARE(model.data(idx, OrderModel::TotalRole).toLongLong(), 24000LL);
         QCOMPARE(model.data(idx, OrderModel::CreatedAtRole).toString(), QStringLiteral("2026-10-02T12:00:00Z"));
         QCOMPARE(model.data(idx, 99999), QVariant());
 
@@ -342,9 +336,9 @@ private slots:
         OrderCreateDto dto;
         dto.shopId = QStringLiteral("shop_1");
         dto.deliveryAddress = QStringLiteral("Indiranagar, Bangalore");
-        dto.subtotal = 300.0;
-        dto.deliveryFee = 50.0;
-        dto.total = 350.0;
+        dto.subtotalPaise = 30000;
+        dto.deliveryFeePaise = 5000;
+        dto.totalPaise = 35000;
         dto.idempotencyKey = ApiClient::generateIdempotencyKey();
 
         bool orderDone = false;

@@ -54,7 +54,7 @@ struct ProductDto {
     QString shopId;
     QString name;
     QString description;
-    double price{0.0};
+    qint64 pricePaise{0};
     int stock{0};
     QString category;
 };
@@ -63,9 +63,9 @@ struct OrderCreateDto {
     QString shopId;
     QString deliveryAddress;
     QVariantList items;
-    double subtotal{0.0};
-    double deliveryFee{50.0};
-    double total{0.0};
+    qint64 subtotalPaise{0};
+    qint64 deliveryFeePaise{5000};
+    qint64 totalPaise{0};
     QString idempotencyKey;
 };
 
@@ -75,7 +75,7 @@ struct OrderDto {
     QString shopId;
     QString courierId;
     QString status;
-    double total{0.0};
+    qint64 totalPaise{0};
     QString createdAt;
     QVariantList items;
 };

@@ -24,6 +24,8 @@ private slots:
 
     void testSetLightMode() {
         ThemeManager *tm = ThemeManager::instance();
+        tm->setMode(QStringLiteral("dark")); // Ensure dark first so transition to light is deterministic
+
         QSignalSpy modeSpy(tm, &ThemeManager::modeChanged);
         QSignalSpy darkSpy(tm, &ThemeManager::isDarkChanged);
 
@@ -32,7 +34,7 @@ private slots:
         QCOMPARE(tm->mode(), QStringLiteral("light"));
         QCOMPARE(tm->isDark(), false);
         QCOMPARE(modeSpy.count(), 1);
-        QVERIFY(darkSpy.count() >= 1);
+        QCOMPARE(darkSpy.count(), 1);
     }
 
     void testSetDarkMode() {

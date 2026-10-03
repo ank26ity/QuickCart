@@ -257,7 +257,7 @@ Item {
 
                         required property string orderId
                         required property string address
-                        required property double total
+                        required property var totalPaise
                         required property string status
 
                         GlassCard {
@@ -294,7 +294,7 @@ Item {
                                             Layout.fillWidth: true
                                         }
                                         Text {
-                                            text: "Total: ₹" + orderDelegateItem.total.toFixed(2)
+                                            text: "Total: " + Theme.formatPaise(orderDelegateItem.totalPaise)
                                             font.pixelSize: Theme.fontBody
                                             color: Theme.primary
                                             font.weight: Font.Bold

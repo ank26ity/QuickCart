@@ -7,7 +7,7 @@
  * - validateEmail(const QString &email): RFC 5322 regex validation.
  * - validatePhone(const QString &phone): E.164 and 10-digit telephone format checking.
  * - validatePassword(const QString &password): Minimum length and character complexity validation.
- * - validatePrice(double price): Positive currency value validation with boundary guards.
+ * - validatePricePaise(qint64 paise): Positive currency value validation in integer paise with boundary guards.
  * - validateQuantity(int quantity, int stockLimit): Item count bounds against real-time inventory limits.
  * - validateCoordinates(double lat, double lng): Geographical coordinate bounding (-90..90, -180..180).
  * - calculateHaversineDistanceKm(...): Great-circle distance computation between geographic points.
@@ -51,13 +51,6 @@ public:
      * @return Result::ok() on strong password, Result::error() detailing missing requirements otherwise.
      */
     static Result<void> validatePassword(const QString &password);
-
-    /**
-     * @brief Validate product or cart item price.
-     * @param price Value to check. Must be > 0.0 and <= 500,000.0.
-     * @return Result::ok() on valid price, Result::error() otherwise.
-     */
-    static Result<void> validatePrice(double price);
 
     /**
      * @brief Validate product or cart item price in integer paise.

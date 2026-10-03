@@ -73,20 +73,6 @@ Result<void> Validators::validatePassword(const QString &password) {
     return Result<void>::ok();
 }
 
-Result<void> Validators::validatePrice(double price) {
-    if (std::isnan(price) || std::isinf(price)) {
-        return Result<void>::error(AppError::validation(QStringLiteral("Price value is invalid.")));
-    }
-    if (price <= 0.0) {
-        return Result<void>::error(AppError::validation(QStringLiteral("Price must be greater than zero.")));
-    }
-    if (price > 500000.0) {
-        return Result<void>::error(AppError::validation(QStringLiteral("Price exceeds maximum permitted limit.")));
-    }
-
-    return Result<void>::ok();
-}
-
 Result<void> Validators::validatePricePaise(qint64 paise) {
     if (paise <= 0) {
         return Result<void>::error(AppError::validation(QStringLiteral("Price in paise must be strictly positive.")));

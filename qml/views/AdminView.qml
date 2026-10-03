@@ -168,7 +168,7 @@ Item {
                         spacing: Theme.space4
                         Text { text: "💳 Gross GMV"; font.pixelSize: Theme.fontSmall; color: Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
                         Text {
-                            text: "₹" + (adminView.orderModel ? (adminView.orderModel.count * 250).toFixed(2) : "0.00")
+                            text: Theme.formatPaise(adminView.orderModel ? (adminView.orderModel.count * 25000) : 0)
                             font.pixelSize: Theme.fontDisplay
                             font.weight: Font.Bold
                             color: Theme.secondary

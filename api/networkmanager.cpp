@@ -32,6 +32,11 @@ void NetworkManager::resetForTesting() {
     m_refreshQueue.clear();
     m_isRefreshingToken = false;
     m_interceptors.clear();
+    m_circuitBreaker.resetAll();
+}
+
+void NetworkManager::resetCircuitBreakers() {
+    m_circuitBreaker.resetAll();
 }
 
 QString NetworkManager::baseUrl() const {
@@ -118,9 +123,11 @@ void NetworkManager::sendRequest(const QString &verb, const QString &endpoint, c
         return;
     }
 
+    // Ensure deleteLater is called on every QNetworkReply immediately
+    connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
+
     // 4. Handle HTTP Response
     connect(reply, &QNetworkReply::finished, this, [this, reply, verb, endpoint, data, attempt, callback]() {
-        reply->deleteLater();
         QByteArray respBytes = reply->readAll();
         int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
@@ -207,8 +214,13 @@ void NetworkManager::handleTokenRefresh() {
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
 
     QNetworkReply *reply = m_nam.post(request, bodyBytes);
+    if (!reply) {
+        m_isRefreshingToken = false;
+        flushPendingQueue(false);
+        return;
+    }
+    connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        reply->deleteLater();
         int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         m_isRefreshingToken = false;
 
@@ -241,8 +253,8 @@ void NetworkManager::flushPendingQueue(bool success) {
         if (success) {
             sendRequest(pr.verb, pr.endpoint, pr.data, pr.attempt, pr.callback);
         } else {
-            pr.callback(
-                Result<QJsonDocument>::error(AppError::auth(QStringLiteral("Session expired. Please log in again."))));
+            pr.callback(Result<QJsonDocument>::error(
+                AppError::auth(QStringLiteral("Unauthorized: Session expired (HTTP 401). Please log in again."))));
         }
     }
 }

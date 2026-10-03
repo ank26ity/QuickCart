@@ -397,7 +397,7 @@ Item {
                         required property string name
                         required property string image
                         required property string description
-                        required property double price
+                        required property var pricePaise
                         required property int quantity
                         required property bool isLowStock
                         required property bool isOutOfStock
@@ -458,7 +458,7 @@ Item {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     Text {
-                                        text: "₹" + prodDelegate.price.toFixed(2)
+                                        text: Theme.formatPaise(prodDelegate.pricePaise)
                                         font.pixelSize: Theme.fontSubheading
                                         font.weight: Font.Bold
                                         color: Theme.primary
@@ -525,7 +525,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: 2
                                 Text { text: cartDelegate.modelData.name; font.pixelSize: 13; color: Theme.textPrimary; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                                Text { text: "₹" + (cartDelegate.modelData.price * cartDelegate.modelData.quantity).toFixed(2); font.pixelSize: 12; color: Theme.primary; font.weight: Font.Bold }
+                                Text { text: Theme.formatPaise(cartDelegate.modelData.pricePaise * cartDelegate.modelData.quantity); font.pixelSize: 12; color: Theme.primary; font.weight: Font.Bold }
                             }
 
                             RowLayout {
@@ -564,20 +564,20 @@ Item {
                         Layout.fillWidth: true
                         Text { text: "Subtotal"; color: Theme.textSecondary; font.pixelSize: Theme.fontBody }
                         Item { Layout.fillWidth: true }
-                        Text { text: "₹" + (customerView.cartManager ? customerView.cartManager.subtotal.toFixed(2) : "0.00"); color: Theme.textPrimary; font.pixelSize: Theme.fontBody }
+                        Text { text: customerView.cartManager ? Theme.formatPaise(customerView.cartManager.subtotalPaise) : "₹0.00"; color: Theme.textPrimary; font.pixelSize: Theme.fontBody }
                     }
                     RowLayout {
                         Layout.fillWidth: true
                         Text { text: "Delivery Fee"; color: Theme.textSecondary; font.pixelSize: Theme.fontBody }
                         Item { Layout.fillWidth: true }
-                        Text { text: "₹" + (customerView.cartManager ? customerView.cartManager.deliveryFee.toFixed(2) : "0.00"); color: Theme.textPrimary; font.pixelSize: Theme.fontBody }
+                        Text { text: customerView.cartManager ? Theme.formatPaise(customerView.cartManager.deliveryFeePaise) : "₹0.00"; color: Theme.textPrimary; font.pixelSize: Theme.fontBody }
                     }
                     Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.divider }
                     RowLayout {
                         Layout.fillWidth: true
                         Text { text: "Total"; color: Theme.textPrimary; font.pixelSize: Theme.fontSubheading; font.weight: Font.Bold }
                         Item { Layout.fillWidth: true }
-                        Text { text: "₹" + (customerView.cartManager ? customerView.cartManager.total.toFixed(2) : "0.00"); color: Theme.primary; font.pixelSize: Theme.fontHeading; font.weight: Font.Bold }
+                        Text { text: customerView.cartManager ? Theme.formatPaise(customerView.cartManager.totalPaise) : "₹0.00"; color: Theme.primary; font.pixelSize: Theme.fontHeading; font.weight: Font.Bold }
                     }
 
                     CustomTextField {
@@ -625,7 +625,7 @@ Item {
             }
             Item { Layout.fillWidth: true }
             Text {
-                text: "₹" + (customerView.cartManager ? customerView.cartManager.total.toFixed(2) : "0.00") + "  ➔"
+                text: (customerView.cartManager ? Theme.formatPaise(customerView.cartManager.totalPaise) : "₹0.00") + "  ➔"
                 color: Theme.onPrimary
                 font.pixelSize: Theme.fontBody
                 font.weight: Font.Bold
@@ -685,7 +685,7 @@ Item {
                         ColumnLayout {
                             Layout.fillWidth: true
                             Text { text: mCartDelegate.modelData.name; font.pixelSize: 13; color: Theme.textPrimary; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                            Text { text: "₹" + (mCartDelegate.modelData.price * mCartDelegate.modelData.quantity).toFixed(2); font.pixelSize: 12; color: Theme.primary; font.weight: Font.Bold }
+                            Text { text: Theme.formatPaise(mCartDelegate.modelData.pricePaise * mCartDelegate.modelData.quantity); font.pixelSize: 12; color: Theme.primary; font.weight: Font.Bold }
                         }
 
                         RowLayout {
@@ -730,7 +730,7 @@ Item {
                         Layout.fillWidth: true
                         Text { text: "Total Payable"; font.pixelSize: Theme.fontSubheading; font.weight: Font.Bold; color: Theme.textPrimary }
                         Item { Layout.fillWidth: true }
-                        Text { text: "₹" + (customerView.cartManager ? customerView.cartManager.total.toFixed(2) : "0.00"); color: Theme.primary; font.pixelSize: Theme.fontHeading; font.weight: Font.Bold }
+                        Text { text: customerView.cartManager ? Theme.formatPaise(customerView.cartManager.totalPaise) : "₹0.00"; color: Theme.primary; font.pixelSize: Theme.fontHeading; font.weight: Font.Bold }
                     }
 
                     CustomTextField {

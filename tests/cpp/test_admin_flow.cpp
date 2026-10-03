@@ -28,6 +28,12 @@ private slots:
     void initTestCase() {
         QVERIFY(m_server.start());
         NetworkManager::instance()->setBaseUrl(m_server.url());
+        SecureStorage::instance()->saveTokens(QStringLiteral("mock_jwt_admin_token"), QStringLiteral("refresh"));
+    }
+
+    void init() {
+        NetworkManager::instance()->resetCircuitBreakers();
+        SecureStorage::instance()->saveTokens(QStringLiteral("mock_jwt_admin_token"), QStringLiteral("refresh"));
     }
 
     void cleanupTestCase() { m_server.stop(); }
@@ -73,24 +79,24 @@ private slots:
 
         OrderModel orderModel;
         QJsonArray orders;
-        double expectedGmv = 0.0;
+        qint64 expectedGmvPaise = 0;
         for (int i = 0; i < 4; ++i) {
             QJsonObject o;
             o[QStringLiteral("id")] = QString("order_%1").arg(i);
             o[QStringLiteral("status")] = QStringLiteral("delivering");
-            double amt = 250.0 + (i * 50.0);
-            o[QStringLiteral("total")] = amt;
-            expectedGmv += amt;
+            qint64 amt = 25000 + (i * 5000);
+            o[QStringLiteral("total_paise")] = amt;
+            expectedGmvPaise += amt;
             orders.append(o);
         }
         orderModel.populateFromJson(orders);
         QCOMPARE(orderModel.count(), 4);
 
-        double actualGmv = 0.0;
+        qint64 actualGmvPaise = 0;
         for (int i = 0; i < orderModel.count(); ++i) {
-            actualGmv += orderModel.getOrderAt(i)[QStringLiteral("total")].toDouble();
+            actualGmvPaise += orderModel.getOrderAt(i)[QStringLiteral("totalPaise")].toLongLong();
         }
-        QCOMPARE(actualGmv, expectedGmv);
+        QCOMPARE(actualGmvPaise, expectedGmvPaise);
     }
 
     void testCourierDocumentApprovalFlow() {
@@ -195,8 +201,9 @@ private slots:
     }
 
     void testNonAdminAccessToAdminEndpointsReturns403() {
-        // 1. Customer token attempting admin approve endpoint -> 403 Forbidden
+        // 1. Customer token attempting admin approve endpoint -> 403 Forbidden (Role: customer)
         SecureStorage::instance()->saveTokens(QStringLiteral("mock_jwt_customer_token"), QStringLiteral("refresh"));
+        NetworkManager::instance()->resetCircuitBreakers();
 
         bool done = false;
         bool is403 = false;
@@ -208,10 +215,42 @@ private slots:
                                              }
                                          });
         QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
-        QVERIFY2(is403, "Customer token must be rejected with HTTP 403 on admin endpoints");
+        QVERIFY2(is403, "Customer token must be rejected with HTTP 403 on admin approve endpoint (Role: customer)");
 
-        // 2. Delivery courier token attempting audit logs -> 403 Forbidden
+        // 2. Customer token attempting user suspension -> 403 Forbidden (Role: customer)
+        NetworkManager::instance()->resetCircuitBreakers();
+        done = false;
+        is403 = false;
+        NetworkManager::instance()->post(QStringLiteral("/api/admin/users/user_target_1/suspend"), QJsonObject(),
+                                         [&](bool success, const QJsonDocument &, const QString &err) {
+                                             done = true;
+                                             if (!success && (err.contains("403") || err.contains("Forbidden"))) {
+                                                 is403 = true;
+                                             }
+                                         });
+        QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
+        QVERIFY2(is403, "Customer token must be rejected with HTTP 403 on admin suspend endpoint (Role: customer)");
+
+        // 3. Delivery courier token attempting order dispatch -> 403 Forbidden (Role: delivery)
         SecureStorage::instance()->saveTokens(QStringLiteral("mock_jwt_delivery_token"), QStringLiteral("refresh"));
+        NetworkManager::instance()->resetCircuitBreakers();
+        done = false;
+        is403 = false;
+        QJsonObject dispatchReq;
+        dispatchReq[QStringLiteral("delivery_boy_id")] = QStringLiteral("user_courier_1");
+        NetworkManager::instance()->post(QStringLiteral("/api/admin/orders/ord_123/dispatch"), dispatchReq,
+                                         [&](bool success, const QJsonDocument &, const QString &err) {
+                                             done = true;
+                                             if (!success && (err.contains("403") || err.contains("Forbidden"))) {
+                                                 is403 = true;
+                                             }
+                                         });
+        QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
+        QVERIFY2(is403,
+                 "Delivery courier token must be rejected with HTTP 403 on admin dispatch endpoint (Role: delivery)");
+
+        // 4. Delivery courier token attempting audit logs -> 403 Forbidden (Role: delivery)
+        NetworkManager::instance()->resetCircuitBreakers();
         done = false;
         is403 = false;
         NetworkManager::instance()->get(QStringLiteral("/api/admin/audit-logs"),
@@ -222,9 +261,45 @@ private slots:
                                             }
                                         });
         QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
-        QVERIFY2(is403, "Courier token must be rejected with HTTP 403 on admin audit-logs endpoint");
+        QVERIFY2(is403, "Courier token must be rejected with HTTP 403 on admin audit-logs endpoint (Role: delivery)");
 
         // Reset storage tokens
+        SecureStorage::instance()->clearTokens();
+    }
+
+    void testUnauthenticatedAccessToAdminEndpointsReturns401() {
+        // Ensure no auth tokens exist
+        SecureStorage::instance()->clearTokens();
+        NetworkManager::instance()->resetCircuitBreakers();
+
+        bool done = false;
+        bool is401 = false;
+        NetworkManager::instance()->get(QStringLiteral("/api/admin/audit-logs"),
+                                        [&](bool success, const QJsonDocument &, const QString &err) {
+                                            done = true;
+                                            if (!success && (err.contains("401") || err.contains("Unauthorized"))) {
+                                                is401 = true;
+                                            }
+                                        });
+        QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
+        QVERIFY2(is401, "Unauthenticated request without token must be rejected with HTTP 401 Unauthorized");
+
+        // Request with explicit invalid Bearer token
+        SecureStorage::instance()->saveTokens(QStringLiteral("invalid_token_header"),
+                                              QStringLiteral("expired_refresh"));
+        NetworkManager::instance()->resetCircuitBreakers();
+        done = false;
+        is401 = false;
+        NetworkManager::instance()->get(QStringLiteral("/api/admin/audit-logs"),
+                                        [&](bool success, const QJsonDocument &, const QString &err) {
+                                            done = true;
+                                            if (!success && (err.contains("401") || err.contains("Unauthorized"))) {
+                                                is401 = true;
+                                            }
+                                        });
+        QTRY_VERIFY_WITH_TIMEOUT(done, 3000);
+        QVERIFY2(is401, "Invalid Bearer token must be rejected with HTTP 401 Unauthorized");
+
         SecureStorage::instance()->clearTokens();
     }
 };

@@ -62,28 +62,28 @@ private slots:
 
     void testDynamicEarningsServerConfig() {
         bool configReceived = false;
-        double baseFee = 0.0;
-        double perKmRate = 0.0;
+        qint64 baseFeePaise = 0;
+        qint64 perKmRatePaise = 0;
 
         NetworkManager::instance()->get(
             "/api/config/delivery",
-            [&configReceived, &baseFee, &perKmRate](bool ok, const QJsonDocument &doc, const QString &err) {
+            [&configReceived, &baseFeePaise, &perKmRatePaise](bool ok, const QJsonDocument &doc, const QString &err) {
                 Q_UNUSED(err);
                 if (ok && doc.isObject()) {
                     configReceived = true;
-                    baseFee = doc.object().value("baseFee").toDouble();
-                    perKmRate = doc.object().value("perKmRate").toDouble();
+                    baseFeePaise = doc.object().value("baseFeePaise").toInteger();
+                    perKmRatePaise = doc.object().value("perKmRatePaise").toInteger();
                 }
             });
 
         QTRY_VERIFY(configReceived);
-        QCOMPARE(baseFee, 40.0);
-        QCOMPARE(perKmRate, 12.0);
+        QCOMPARE(baseFeePaise, 4000LL);
+        QCOMPARE(perKmRatePaise, 1200LL);
 
-        // Compute earnings dynamically for a 3.5 km trip
+        // Compute earnings dynamically in paise for a 3.5 km trip
         double distanceKm = 3.5;
-        double totalEarnings = baseFee + (distanceKm * perKmRate);
-        QCOMPARE(totalEarnings, 82.0); // 40 + (3.5 * 12) = 82.0
+        qint64 totalEarningsPaise = baseFeePaise + static_cast<qint64>(std::round(distanceKm * perKmRatePaise));
+        QCOMPARE(totalEarningsPaise, 8200LL); // 4000 + (3.5 * 1200) = 8200 paise (₹82.00)
     }
 };
 

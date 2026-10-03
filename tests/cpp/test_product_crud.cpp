@@ -22,7 +22,7 @@ private slots:
         p1[QStringLiteral("shop_id")] = QStringLiteral("shop_101");
         p1[QStringLiteral("name")] = QStringLiteral("Organic Apples 1kg");
         p1[QStringLiteral("description")] = QStringLiteral("Crisp Washington apples");
-        p1[QStringLiteral("price")] = 180.0;
+        p1[QStringLiteral("price_paise")] = 18000;
         p1[QStringLiteral("quantity")] = 25;
 
         QSignalSpy countSpy(&model, &ProductModel::countChanged);
@@ -36,7 +36,7 @@ private slots:
         QVariantMap item = model.getProductAt(0);
         QCOMPARE(item[QStringLiteral("id")].toString(), QStringLiteral("p1"));
         QCOMPARE(item[QStringLiteral("name")].toString(), QStringLiteral("Organic Apples 1kg"));
-        QCOMPARE(item[QStringLiteral("price")].toDouble(), 180.0);
+        QCOMPARE(item[QStringLiteral("pricePaise")].toLongLong(), 18000LL);
         QCOMPARE(item[QStringLiteral("quantity")].toInt(), 25);
     }
 
@@ -46,12 +46,12 @@ private slots:
         p1[QStringLiteral("id")] = QStringLiteral("p2");
         p1[QStringLiteral("shop_id")] = QStringLiteral("shop_101");
         p1[QStringLiteral("name")] = QStringLiteral("Almond Milk 1L");
-        p1[QStringLiteral("price")] = 240.0;
+        p1[QStringLiteral("price_paise")] = 24000;
         p1[QStringLiteral("quantity")] = 10;
         model.addProduct(p1);
 
         QJsonObject updateData;
-        updateData[QStringLiteral("price")] = 220.0;
+        updateData[QStringLiteral("price_paise")] = 22000;
         updateData[QStringLiteral("quantity")] = 4; // Should trigger low stock
 
         QSignalSpy updateSpy(&model, &ProductModel::productUpdated);
@@ -59,7 +59,7 @@ private slots:
         QCOMPARE(updateSpy.count(), 1);
 
         QVariantMap updatedItem = model.getProductAt(0);
-        QCOMPARE(updatedItem[QStringLiteral("price")].toDouble(), 220.0);
+        QCOMPARE(updatedItem[QStringLiteral("pricePaise")].toLongLong(), 22000LL);
         QCOMPARE(updatedItem[QStringLiteral("quantity")].toInt(), 4);
 
         // Verify low stock role
@@ -73,7 +73,7 @@ private slots:
         QJsonObject p1;
         p1[QStringLiteral("id")] = QStringLiteral("p3");
         p1[QStringLiteral("name")] = QStringLiteral("Dark Chocolate");
-        p1[QStringLiteral("price")] = 99.0;
+        p1[QStringLiteral("price_paise")] = 9900;
         p1[QStringLiteral("quantity")] = 0; // Out of stock
         model.addProduct(p1);
 
@@ -97,7 +97,7 @@ private slots:
             QJsonObject obj;
             obj[QStringLiteral("id")] = QString("prod_%1").arg(i);
             obj[QStringLiteral("name")] = QString("Product %1").arg(i);
-            obj[QStringLiteral("price")] = 50.0 * i;
+            obj[QStringLiteral("price_paise")] = 5000LL * i;
             obj[QStringLiteral("quantity")] = i * 2;
             arr.append(obj);
         }
@@ -105,7 +105,7 @@ private slots:
         model.populateFromJson(arr);
         QCOMPARE(model.count(), 3);
         QCOMPARE(model.getProductAt(0)[QStringLiteral("name")].toString(), QStringLiteral("Product 1"));
-        QCOMPARE(model.getProductAt(2)[QStringLiteral("price")].toDouble(), 150.0);
+        QCOMPARE(model.getProductAt(2)[QStringLiteral("pricePaise")].toLongLong(), 15000LL);
     }
 };
 

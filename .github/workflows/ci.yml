@@ -128,6 +128,9 @@ jobs:
       - name: Execute CTest Suite
         run: |
           export QT_QPA_PLATFORM=offscreen
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            export GENERATE_GOLDENS=1
+          fi
           ctest --test-dir build --output-on-failure
 
       - name: Upload UI Screenshots
@@ -135,7 +138,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: responsive-screenshots-${{ matrix.os }}
-          path: build/screenshots/*.png
+          path: |
+            build/screenshots/*.png
+            tests/golden/*.png
           if-no-files-found: ignore
 
   # ── 3. Memory Safety & Sanitizers (ASan + UBSan) ──────────────────────────
@@ -246,10 +251,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Qt 6.7.3 (Windows MSVC)
+      - name: Install Qt 6.11 (Windows MSVC)
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.7.3'
+          version: '6.11.0'
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
@@ -268,7 +273,7 @@ jobs:
       - name: Execute Windows CTest
         run: |
           $env:QT_QPA_PLATFORM="offscreen"
-          ctest --test-dir build --output-on-failure
+          ctest --test-dir build -C Release --output-on-failure
 
   # ── 6. Android Cross-Compilation Check ────────────────────────────────────
   android-build-check:
@@ -284,10 +289,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Host Qt 6.11 (Linux Desktop)
+      - name: Install Host Qt 6.7.3 (Linux Desktop)
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.11.0'
+          version: '6.7.3'
           host: 'linux'
           target: 'desktop'
           arch: 'linux_gcc_64'
@@ -304,7 +309,7 @@ jobs:
 
       - name: Configure & Verify Android Toolchain
         run: |
-          export QT_HOST_PATH="${{ runner.temp }}/qt-host/Qt/6.11.0/gcc_64"
+          export QT_HOST_PATH="${{ runner.temp }}/qt-host/Qt/6.7.3/gcc_64"
           export ANDROID_NDK_ROOT="${ANDROID_NDK_LATEST_HOME:-/usr/local/lib/android/sdk/ndk/27.0.12077973}"
           cmake -B build-android -S . -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="${{ runner.temp }}/qt-android/Qt/6.7.3/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake" \

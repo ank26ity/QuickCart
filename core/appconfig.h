@@ -52,7 +52,6 @@ public:
     void setFreeDeliveryThresholdPaise(qint64 paise);
 
     Q_INVOKABLE qint64 calculateDeliveryFeePaise(double distanceKm, qint64 subtotalPaise) const;
-    Q_INVOKABLE double calculateDeliveryFee(double distanceKm, double subtotal) const;
     Q_INVOKABLE QString formatMoney(qint64 paise) const;
 
     Q_INVOKABLE bool isFeatureEnabled(const QString &featureName) const;

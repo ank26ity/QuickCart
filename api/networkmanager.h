@@ -55,6 +55,7 @@ public:
      * @brief Reset network manager state and clear pending queues for test isolation.
      */
     void resetForTesting();
+    void resetCircuitBreakers();
 
 signals:
     void baseUrlChanged();

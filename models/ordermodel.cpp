@@ -48,11 +48,11 @@ QVariant OrderModel::data(const QModelIndex &index, int role) const {
         case StatusRole:
             return o.status;
         case SubtotalRole:
-            return o.subtotal;
+            return o.subtotalPaise;
         case DeliveryFeeRole:
-            return o.deliveryFee;
+            return o.deliveryFeePaise;
         case TotalRole:
-            return o.total;
+            return o.totalPaise;
         case CreatedAtRole:
             return o.createdAt;
         case ItemsRole:
@@ -71,9 +71,9 @@ QHash<int, QByteArray> OrderModel::roleNames() const {
     roles[DeliveryBoyIdRole] = "deliveryBoyId";
     roles[AddressRole] = "address";
     roles[StatusRole] = "status";
-    roles[SubtotalRole] = "subtotal";
-    roles[DeliveryFeeRole] = "deliveryFee";
-    roles[TotalRole] = "total";
+    roles[SubtotalRole] = "subtotalPaise";
+    roles[DeliveryFeeRole] = "deliveryFeePaise";
+    roles[TotalRole] = "totalPaise";
     roles[CreatedAtRole] = "createdAt";
     roles[ItemsRole] = "items";
     return roles;
@@ -106,9 +106,24 @@ void OrderModel::populateFromJson(const QJsonArray &arr) {
         o.deliveryBoyId = obj.value(QStringLiteral("delivery_boy_id")).toString();
         o.address = obj.value(QStringLiteral("address")).toString();
         o.status = obj.value(QStringLiteral("status")).toString(QStringLiteral("pending"));
-        o.subtotal = obj.value(QStringLiteral("subtotal")).toDouble(0.0);
-        o.deliveryFee = obj.value(QStringLiteral("delivery_fee")).toDouble(50.0);
-        o.total = obj.value(QStringLiteral("total")).toDouble(o.subtotal + o.deliveryFee);
+        if (obj.contains(QStringLiteral("subtotal_paise")))
+            o.subtotalPaise = obj.value(QStringLiteral("subtotal_paise")).toInteger();
+        else
+            o.subtotalPaise =
+                static_cast<qint64>(std::round(obj.value(QStringLiteral("subtotal")).toDouble(0.0) * 100.0));
+
+        if (obj.contains(QStringLiteral("delivery_fee_paise")))
+            o.deliveryFeePaise = obj.value(QStringLiteral("delivery_fee_paise")).toInteger();
+        else
+            o.deliveryFeePaise =
+                static_cast<qint64>(std::round(obj.value(QStringLiteral("delivery_fee")).toDouble(50.0) * 100.0));
+
+        if (obj.contains(QStringLiteral("total_paise")))
+            o.totalPaise = obj.value(QStringLiteral("total_paise")).toInteger();
+        else if (obj.contains(QStringLiteral("total")))
+            o.totalPaise = static_cast<qint64>(std::round(obj.value(QStringLiteral("total")).toDouble(0.0) * 100.0));
+        else
+            o.totalPaise = o.subtotalPaise + o.deliveryFeePaise;
         o.createdAt = obj.value(QStringLiteral("created_at")).toString();
 
         QJsonArray itemsArr = obj.value(QStringLiteral("items")).toArray();
@@ -243,9 +258,9 @@ QVariantMap OrderModel::getOrderAt(int index) const {
     map[QStringLiteral("deliveryBoyId")] = o.deliveryBoyId;
     map[QStringLiteral("address")] = o.address;
     map[QStringLiteral("status")] = o.status;
-    map[QStringLiteral("subtotal")] = o.subtotal;
-    map[QStringLiteral("deliveryFee")] = o.deliveryFee;
-    map[QStringLiteral("total")] = o.total;
+    map[QStringLiteral("subtotalPaise")] = o.subtotalPaise;
+    map[QStringLiteral("deliveryFeePaise")] = o.deliveryFeePaise;
+    map[QStringLiteral("totalPaise")] = o.totalPaise;
     map[QStringLiteral("createdAt")] = o.createdAt;
     map[QStringLiteral("items")] = o.items;
     return map;

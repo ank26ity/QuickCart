@@ -23,6 +23,7 @@ public:
     void recordSuccess(const QString &endpoint);
     void recordFailure(const QString &endpoint);
     State getState(const QString &endpoint);
+    void resetAll();
 
     // Exponential backoff with jitter calculator
     static int calculateBackoffMs(int attempt, int baseDelayMs = 500, int maxDelayMs = 8000);

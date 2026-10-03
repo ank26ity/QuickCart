@@ -108,19 +108,15 @@ private slots:
 
     void testDeliveryFeeCalculationAndOrderPlacement() {
         CartManager *cart = CartManager::instance();
-        QCOMPARE(cart->deliveryFee(), 0.0);
-        QCOMPARE(cart->total(), 0.0);
+        QCOMPARE(cart->deliveryFeePaise(), 0LL);
+        QCOMPARE(cart->totalPaise(), 0LL);
 
         QVariantMap prod;
         prod["id"] = "prod_1";
         prod["shopId"] = "shop_1";
         prod["name"] = "Apples";
-        prod["price"] = 120.0;
+        prod["pricePaise"] = 12000LL;
         cart->addItem(prod, 10);
-
-        QCOMPARE(cart->subtotal(), 120.0);
-        QCOMPARE(cart->deliveryFee(), 50.0);
-        QCOMPARE(cart->total(), 170.0);
 
         // Verify integer paise calculations
         QCOMPARE(cart->subtotalPaise(), 12000LL);
@@ -135,7 +131,7 @@ private slots:
         QVERIFY(!orderPlacedSpy.first().at(0).toString().isEmpty());
         // Cart must be cleared upon successful placement
         QCOMPARE(cart->itemCount(), 0);
-        QCOMPARE(cart->total(), 0.0);
+        QCOMPARE(cart->totalPaise(), 0LL);
     }
 
     void testCartItemModificationsAndClear() {

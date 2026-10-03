@@ -88,7 +88,7 @@ Item {
                     spacing: Theme.space4
                     Text { text: "Total Earnings"; font.pixelSize: Theme.fontSmall; color: Theme.textMuted; Layout.alignment: Qt.AlignHCenter }
                     Text {
-                        text: "₹" + (deliveryView.orderModel ? (deliveryView.orderModel.count * 50).toFixed(2) : "0.00")
+                        text: Theme.formatPaise(deliveryView.orderModel ? (deliveryView.orderModel.count * 5000) : 0)
                         font.pixelSize: Theme.fontTitle
                         font.weight: Font.Bold
                         color: Theme.primary

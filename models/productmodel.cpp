@@ -28,7 +28,7 @@ QVariant ProductModel::data(const QModelIndex &index, int role) const {
         case DescriptionRole:
             return p.description;
         case PriceRole:
-            return p.price;
+            return p.pricePaise;
         case QuantityRole:
             return p.quantity;
         case ImageRole:
@@ -48,7 +48,7 @@ QHash<int, QByteArray> ProductModel::roleNames() const {
     roles[ShopIdRole] = "shopId";
     roles[NameRole] = "name";
     roles[DescriptionRole] = "description";
-    roles[PriceRole] = "price";
+    roles[PriceRole] = "pricePaise";
     roles[QuantityRole] = "quantity";
     roles[ImageRole] = "image";
     roles[IsLowStockRole] = "isLowStock";
@@ -103,7 +103,12 @@ void ProductModel::fetchProductsForShop(const QString &shopId) {
                 item.shopId = itemObj.value("shop_id").toString();
                 item.name = itemObj.value("name").toString();
                 item.description = itemObj.value("description").toString();
-                item.price = itemObj.value("price").toDouble(0.0);
+                if (itemObj.contains("price_paise"))
+                    item.pricePaise = itemObj.value("price_paise").toInteger();
+                else if (itemObj.contains("pricePaise"))
+                    item.pricePaise = itemObj.value("pricePaise").toInteger();
+                else
+                    item.pricePaise = static_cast<qint64>(std::round(itemObj.value("price").toDouble(0.0) * 100.0));
                 item.quantity = itemObj.value("quantity").toInt(0);
                 item.image = itemObj.value("image").toString(
                     "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=300");
@@ -139,7 +144,13 @@ void ProductModel::populateFromJson(const QJsonArray &itemsArr) {
         item.shopId = itemObj.value(QStringLiteral("shop_id")).toString();
         item.name = itemObj.value(QStringLiteral("name")).toString();
         item.description = itemObj.value(QStringLiteral("description")).toString();
-        item.price = itemObj.value(QStringLiteral("price")).toDouble(0.0);
+        if (itemObj.contains(QStringLiteral("price_paise")))
+            item.pricePaise = itemObj.value(QStringLiteral("price_paise")).toInteger();
+        else if (itemObj.contains(QStringLiteral("pricePaise")))
+            item.pricePaise = itemObj.value(QStringLiteral("pricePaise")).toInteger();
+        else
+            item.pricePaise =
+                static_cast<qint64>(std::round(itemObj.value(QStringLiteral("price")).toDouble(0.0) * 100.0));
         item.quantity = itemObj.value(QStringLiteral("quantity")).toInt(0);
         item.image =
             itemObj.value(QStringLiteral("image"))
@@ -165,7 +176,13 @@ bool ProductModel::addProduct(const QJsonObject &productData) {
     item.shopId = productData.value(QStringLiteral("shop_id")).toString();
     item.name = productData.value(QStringLiteral("name")).toString();
     item.description = productData.value(QStringLiteral("description")).toString();
-    item.price = productData.value(QStringLiteral("price")).toDouble(0.0);
+    if (productData.contains(QStringLiteral("price_paise")))
+        item.pricePaise = productData.value(QStringLiteral("price_paise")).toInteger();
+    else if (productData.contains(QStringLiteral("pricePaise")))
+        item.pricePaise = productData.value(QStringLiteral("pricePaise")).toInteger();
+    else
+        item.pricePaise =
+            static_cast<qint64>(std::round(productData.value(QStringLiteral("price")).toDouble(0.0) * 100.0));
     item.quantity = productData.value(QStringLiteral("quantity")).toInt(0);
     item.image = productData.value(QStringLiteral("image"))
                      .toString(QStringLiteral(
@@ -187,8 +204,13 @@ bool ProductModel::updateProduct(const QString &productId, const QJsonObject &pr
                 m_products[i].name = productData.value(QStringLiteral("name")).toString();
             if (productData.contains(QStringLiteral("description")))
                 m_products[i].description = productData.value(QStringLiteral("description")).toString();
-            if (productData.contains(QStringLiteral("price")))
-                m_products[i].price = productData.value(QStringLiteral("price")).toDouble();
+            if (productData.contains(QStringLiteral("price_paise")))
+                m_products[i].pricePaise = productData.value(QStringLiteral("price_paise")).toInteger();
+            else if (productData.contains(QStringLiteral("pricePaise")))
+                m_products[i].pricePaise = productData.value(QStringLiteral("pricePaise")).toInteger();
+            else if (productData.contains(QStringLiteral("price")))
+                m_products[i].pricePaise =
+                    static_cast<qint64>(std::round(productData.value(QStringLiteral("price")).toDouble() * 100.0));
             if (productData.contains(QStringLiteral("quantity")))
                 m_products[i].quantity = productData.value(QStringLiteral("quantity")).toInt();
             if (productData.contains(QStringLiteral("image")))
@@ -225,7 +247,7 @@ QVariantMap ProductModel::getProductAt(int index) const {
     map["shopId"] = p.shopId;
     map["name"] = p.name;
     map["description"] = p.description;
-    map["price"] = p.price;
+    map["pricePaise"] = p.pricePaise;
     map["quantity"] = p.quantity;
     map["image"] = p.image;
     return map;

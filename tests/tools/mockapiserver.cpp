@@ -228,7 +228,7 @@ void MockApiServer::setOrderDeliveryOtp(const QString &orderId, const QString &o
 void MockApiServer::handleNewConnection() {
     while (m_server->hasPendingConnections()) {
         QTcpSocket *socket = m_server->nextPendingConnection();
-        connect(socket, &QTcpSocket::readyRead, this, [this, socket]() {
+        auto readData = [this, socket]() {
             m_buffers[socket].append(socket->readAll());
             const QByteArray &buf = m_buffers[socket];
 
@@ -250,7 +250,12 @@ void MockApiServer::handleNewConnection() {
                 QByteArray fullReq = m_buffers.take(socket);
                 processHttpRequest(socket, fullReq);
             }
-        });
+        };
+
+        connect(socket, &QTcpSocket::readyRead, this, readData);
+        if (socket->bytesAvailable() > 0) {
+            readData();
+        }
 
         connect(socket, &QTcpSocket::disconnected, this, [this, socket]() {
             m_buffers.remove(socket);
@@ -325,17 +330,28 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
         }
     }
 
-    // ── Enforce 403 Forbidden for Non-Admins on Server Endpoints ────────────
-    if (path.startsWith(QStringLiteral("/api/admin/"))) {
+    // ── Enforce 401 Unauthorized and 403 Forbidden for Admin Endpoints ────────────
+    if (path.startsWith(QStringLiteral("/api/admin/")) && !path.endsWith(QStringLiteral("/assign"))) {
         QString authHdr = reqHeaders.value(QStringLiteral("authorization"));
+        if (authHdr.isEmpty() || authHdr.trimmed() == QStringLiteral("Bearer") ||
+            authHdr.contains(QStringLiteral("invalid"), Qt::CaseInsensitive)) {
+            QJsonObject err;
+            err[QStringLiteral("error")] = QStringLiteral("Unauthorized: Missing or invalid authentication token");
+            err[QStringLiteral("message")] = QStringLiteral("Unauthorized: Authentication required (HTTP 401)");
+            err[QStringLiteral("statusCode")] = 401;
+            sendJsonResponse(socket, 401, QJsonDocument(err));
+            return;
+        }
+
         QString roleHdr = reqHeaders.value(QStringLiteral("x-user-role")).toLower();
         bool isNonAdmin = authHdr.contains(QStringLiteral("customer"), Qt::CaseInsensitive) ||
                           authHdr.contains(QStringLiteral("delivery"), Qt::CaseInsensitive) ||
                           authHdr.contains(QStringLiteral("courier"), Qt::CaseInsensitive) ||
                           authHdr.contains(QStringLiteral("shopkeeper"), Qt::CaseInsensitive) ||
+                          authHdr.contains(QStringLiteral("merchant"), Qt::CaseInsensitive) ||
                           authHdr.contains(QStringLiteral("non_admin"), Qt::CaseInsensitive) ||
                           roleHdr == QStringLiteral("customer") || roleHdr == QStringLiteral("delivery") ||
-                          roleHdr == QStringLiteral("shopkeeper");
+                          roleHdr == QStringLiteral("shopkeeper") || roleHdr == QStringLiteral("merchant");
 
         if (isNonAdmin) {
             QJsonObject err;
@@ -640,6 +656,8 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
         QJsonObject config;
         config["baseFee"] = 40.0;
         config["perKmRate"] = 12.0;
+        config["baseFeePaise"] = 4000;
+        config["perKmRatePaise"] = 1200;
         config["surgeMultiplier"] = 1.0;
         sendJsonResponse(socket, 200, QJsonDocument(config));
         return;

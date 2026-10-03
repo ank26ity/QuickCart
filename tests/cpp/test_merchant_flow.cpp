@@ -30,8 +30,8 @@ private slots:
         pendingOrder["_id"] = "order_merch_test_1";
         pendingOrder["shop_id"] = "shop_1";
         pendingOrder["status"] = "pending";
-        pendingOrder["subtotal"] = 240.0;
-        pendingOrder["total"] = 290.0;
+        pendingOrder["subtotal_paise"] = 24000;
+        pendingOrder["total_paise"] = 29000;
         m_server.addOrder(pendingOrder);
 
         QJsonArray orderList;

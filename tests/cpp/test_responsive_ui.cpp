@@ -22,6 +22,7 @@ class MockAuthService : public QObject {
     Q_PROPERTY(bool isLoggedIn READ isLoggedIn WRITE setIsLoggedIn NOTIFY authChanged)
     Q_PROPERTY(QString userName READ userName WRITE setUserName NOTIFY authChanged)
     Q_PROPERTY(QString userRole READ userRole WRITE setUserRole NOTIFY authChanged)
+    Q_PROPERTY(QString errorMessage READ errorMessage CONSTANT)
 
 public:
     explicit MockAuthService(QObject *parent = nullptr)
@@ -52,6 +53,8 @@ public:
         }
     }
 
+    QString errorMessage() const { return QString(); }
+
 signals:
     void authChanged();
 
@@ -64,20 +67,40 @@ private:
 class TestResponsiveUI : public QObject {
     Q_OBJECT
 
-private:
-    QString m_sourceDir;
-    QString m_screenshotDir;
-    QString m_goldenDir;
+public:
+    struct MismatchResult {
+        double globalRatio{0.0};
+        double maxRegionRatio{0.0};
+        int worstRegionX{0};
+        int worstRegionY{0};
+        bool passed{false};
+    };
 
-    static constexpr double MAX_MISMATCH_TOLERANCE = 0.0005; // Strict <= 0.05% tolerance threshold
+    static constexpr double MAX_GLOBAL_TOLERANCE = 0.0005; // Strict <= 0.05% global threshold
+    static constexpr double MAX_REGION_TOLERANCE = 0.05;   // Strict <= 5.0% localized regional threshold
+    static constexpr int REGION_TILE_SIZE = 32;            // 32x32 pixel tiles for regional sensitivity
 
-    static double calculateMismatchRatio(const QImage &actual, const QImage &golden) {
-        if (actual.size() != golden.size())
-            return 1.0;
-        int diffPixels = 0;
-        int totalPixels = actual.width() * actual.height();
-        for (int y = 0; y < actual.height(); ++y) {
-            for (int x = 0; x < actual.width(); ++x) {
+    static MismatchResult calculateMismatch(const QImage &actual, const QImage &golden) {
+        if (actual.size() != golden.size() || actual.isNull() || golden.isNull()) {
+            return MismatchResult{1.0, 1.0, 0, 0, false};
+        }
+
+        int width = actual.width();
+        int height = actual.height();
+        int totalPixels = width * height;
+        int globalDiff = 0;
+
+        int numTilesX = (width + REGION_TILE_SIZE - 1) / REGION_TILE_SIZE;
+        int numTilesY = (height + REGION_TILE_SIZE - 1) / REGION_TILE_SIZE;
+        std::vector<std::vector<int>> tileDiffs(numTilesY, std::vector<int>(numTilesX, 0));
+        std::vector<std::vector<int>> tileTotals(numTilesY, std::vector<int>(numTilesX, 0));
+
+        for (int y = 0; y < height; ++y) {
+            int ty = y / REGION_TILE_SIZE;
+            for (int x = 0; x < width; ++x) {
+                int tx = x / REGION_TILE_SIZE;
+                tileTotals[ty][tx]++;
+
                 QRgb a = actual.pixel(x, y);
                 QRgb g = golden.pixel(x, y);
                 int dr = std::abs(qRed(a) - qRed(g));
@@ -85,12 +108,38 @@ private:
                 int db = std::abs(qBlue(a) - qBlue(g));
                 // Per-pixel threshold: delta > 10 on any channel or aggregate delta > 20
                 if (dr > 10 || dg > 10 || db > 10 || (dr + dg + db) > 20) {
-                    diffPixels++;
+                    globalDiff++;
+                    tileDiffs[ty][tx]++;
                 }
             }
         }
-        return static_cast<double>(diffPixels) / totalPixels;
+
+        double globalRatio = static_cast<double>(globalDiff) / totalPixels;
+        double maxRegionRatio = 0.0;
+        int worstTx = 0;
+        int worstTy = 0;
+
+        for (int ty = 0; ty < numTilesY; ++ty) {
+            for (int tx = 0; tx < numTilesX; ++tx) {
+                if (tileTotals[ty][tx] > 0) {
+                    double rRatio = static_cast<double>(tileDiffs[ty][tx]) / tileTotals[ty][tx];
+                    if (rRatio > maxRegionRatio) {
+                        maxRegionRatio = rRatio;
+                        worstTx = tx * REGION_TILE_SIZE;
+                        worstTy = ty * REGION_TILE_SIZE;
+                    }
+                }
+            }
+        }
+
+        bool passed = (globalRatio <= MAX_GLOBAL_TOLERANCE) && (maxRegionRatio <= MAX_REGION_TOLERANCE);
+        return MismatchResult{globalRatio, maxRegionRatio, worstTx, worstTy, passed};
     }
+
+private:
+    QString m_sourceDir;
+    QString m_screenshotDir;
+    QString m_goldenDir;
 
 private slots:
     void initTestCase() {
@@ -225,42 +274,49 @@ private slots:
     }
 
     void testDeliberateUiMismatchFails() {
-        // ── 1. Negative Control: 20x20 rect on 360x640 mobile screen ──────────
+        // ── 1. Negative Control: 20x20 rect on 1440x900 desktop screen ──────────
         // Mathematical proof:
         // A 20x20 rect occupies 400 pixels.
-        // On 360x640 (230,400 px), mismatch = 400 / 230,400 = 0.001736... (0.1736%).
-        // Note: A 20x20 rect cannot be 1.11% of any standard golden:
-        //   For 400 pixels to equal 1.11% (0.0111), total area would be 400/0.0111 = 36,036 px (~190x190).
-        // Under our tightened tolerance (<=0.05% = 0.0005), 0.1736% > 0.05%, so it strictly FAILS.
-        QImage base(360, 640, QImage::Format_ARGB32);
-        base.fill(QColor(15, 23, 42)); // Background: dark navy (#0f172a)
+        // On 1440x900 (1,296,000 px), global mismatch = 400 / 1,296,000 = 0.03086%.
+        // Under a global threshold alone (<=0.05%), it would pass (0.03086% <= 0.05%).
+        // BUT with our 32x32 regional grid, the tile contains 400 changed pixels out of 1024 (39.06% regional diff).
+        // Since regional tolerance is <= 5.0%, it strictly FAILS!
+        QImage base1440(1440, 900, QImage::Format_ARGB32);
+        base1440.fill(QColor(15, 23, 42)); // Background: dark navy (#0f172a)
 
-        QImage rect20Perturbed = base.copy();
+        QImage rect20Perturbed = base1440.copy();
         QPainter p1(&rect20Perturbed);
-        p1.fillRect(20, 20, 20, 20, QColor(239, 68, 68)); // 20x20 red square
+        p1.fillRect(100, 100, 20, 20, QColor(239, 68, 68)); // 20x20 red square
         p1.end();
 
-        double rectMismatch = calculateMismatchRatio(rect20Perturbed, base);
-        qDebug() << "Negative Control [20x20 Rect]:" << (rectMismatch * 100.0) << "% (tightened threshold: <= 0.05%)";
-        QVERIFY2(
-            rectMismatch > MAX_MISMATCH_TOLERANCE,
-            qPrintable(QString("20x20 rect (%1%) must exceed tightened 0.05% threshold").arg(rectMismatch * 100.0)));
+        MismatchResult rectRes = calculateMismatch(rect20Perturbed, base1440);
+        qDebug() << "Negative Control [20x20 Rect at 1440x900]: Global =" << (rectRes.globalRatio * 100.0)
+                 << "% (<=0.05%), Max Region =" << (rectRes.maxRegionRatio * 100.0)
+                 << "% (<=5.0%), Passed =" << rectRes.passed;
 
-        // ── 2. Negative Control: Real Token Color Shift in App Layout ─────────
-        // Simulate changing the HeaderBar surface token (#0f172a -> #10b981) across top 56px:
-        // 360 * 56 = 20,160 pixels out of 230,400 = 8.7500% overall perturbation.
-        QImage tokenPerturbed = base.copy();
-        QPainter p2(&tokenPerturbed);
-        p2.fillRect(0, 0, 360, 56, QColor(16, 185, 129)); // Changed header background token
-        p2.end();
+        QVERIFY2(!rectRes.passed, "20x20 perturbation at 1440x900 MUST fail the regional mismatch check");
+        QVERIFY2(rectRes.maxRegionRatio > MAX_REGION_TOLERANCE, "Max region diff must exceed 5% tolerance");
 
-        double tokenMismatch = calculateMismatchRatio(tokenPerturbed, base);
-        qDebug() << "Negative Control [HeaderBar Token Shift]:" << (tokenMismatch * 100.0)
-                 << "% (tightened threshold: <= 0.05%)";
-        QVERIFY2(tokenMismatch > MAX_MISMATCH_TOLERANCE,
-                 qPrintable(QString("HeaderBar token shift (%1%) must exceed tightened 0.05% threshold")
-                                .arg(tokenMismatch * 100.0)));
-        QVERIFY2(tokenMismatch >= 0.087, "HeaderBar 56px change on 360w screen must measure >= 8.7%");
+        // ── 2. Negative Control: Real Theme Token Change in App ───────────────
+        // Mutate Theme.primary token from Electric Blue (#2563eb) to Vibrant Crimson (#dc2626)
+        // over a 240x48 CTA button:
+        QImage buttonBase(360, 640, QImage::Format_ARGB32);
+        buttonBase.fill(QColor(15, 23, 42));
+        QPainter pBase(&buttonBase);
+        pBase.fillRect(60, 300, 240, 48, QColor(37, 99, 235)); // Original Theme.primary: #2563eb
+        pBase.end();
+
+        QImage buttonMutated = buttonBase.copy();
+        QPainter pMut(&buttonMutated);
+        pMut.fillRect(60, 300, 240, 48, QColor(220, 38, 38)); // Mutated Theme.primary: #dc2626
+        pMut.end();
+
+        MismatchResult tokenRes = calculateMismatch(buttonMutated, buttonBase);
+        qDebug() << "Negative Control [Real Theme.primary Token Mutation]: Global =" << (tokenRes.globalRatio * 100.0)
+                 << "%, Max Region =" << (tokenRes.maxRegionRatio * 100.0) << "%, Passed =" << tokenRes.passed;
+
+        QVERIFY2(!tokenRes.passed, "Real Theme token color shift MUST fail golden test");
+        QVERIFY2(tokenRes.maxRegionRatio > MAX_REGION_TOLERANCE, "Token shift region mismatch must exceed 5%");
     }
 
     void testOffscreenScreenshotCaptures() {
@@ -288,6 +344,7 @@ private slots:
         const FormFactor factors[] = {{"360", 360, 640}, {"768", 768, 1024}, {"1440", 1440, 900}};
 
         const QStringList modes = {QStringLiteral("dark"), QStringLiteral("light")};
+        bool generateGoldens = qEnvironmentVariableIsSet("GENERATE_GOLDENS");
 
         for (const auto &target : views) {
             QQuickView view;
@@ -328,7 +385,7 @@ private slots:
                     QVERIFY2(saved, qPrintable(QString("Failed to save screenshot: %1").arg(outPath)));
 
                     QString goldenPath = QString("%1/%2.png").arg(m_goldenDir, fullName);
-                    if (!QFileInfo::exists(goldenPath)) {
+                    if (generateGoldens || !QFileInfo::exists(goldenPath)) {
                         bool goldenSaved = frame.save(goldenPath);
                         QVERIFY2(goldenSaved, qPrintable(QString("Failed to save golden image: %1").arg(goldenPath)));
                         qDebug() << "[Golden Seeded]" << fullName << "->" << goldenPath;
@@ -336,13 +393,16 @@ private slots:
                         QImage goldenImage(goldenPath);
                         QVERIFY2(!goldenImage.isNull(),
                                  qPrintable(QString("Failed to read golden image: %1").arg(goldenPath)));
-                        double mismatch = calculateMismatchRatio(frame, goldenImage);
-                        qDebug() << "[Screenshot Check]" << fullName << "Mismatch:" << (mismatch * 100.0)
-                                 << "% (tolerance: <= 0.5%)";
-                        QVERIFY2(mismatch <= MAX_MISMATCH_TOLERANCE,
-                                 qPrintable(QString("Screenshot difference %1% exceeds tolerance of 0.5% for %2")
-                                                .arg(mismatch * 100.0, 0, 'f', 3)
-                                                .arg(fullName)));
+                        MismatchResult res = calculateMismatch(frame, goldenImage);
+                        qDebug() << "[Screenshot Check]" << fullName << "Global Diff:" << (res.globalRatio * 100.0)
+                                 << "% (<=0.05%), Max Region Diff:" << (res.maxRegionRatio * 100.0) << "% (<=5.0%)";
+                        QVERIFY2(
+                            res.passed,
+                            qPrintable(
+                                QString("Screenshot difference exceeds tolerance for %1: global %2%, max region %3%")
+                                    .arg(fullName)
+                                    .arg(res.globalRatio * 100.0, 0, 'f', 4)
+                                    .arg(res.maxRegionRatio * 100.0, 0, 'f', 2)));
                     }
                 }
             }
