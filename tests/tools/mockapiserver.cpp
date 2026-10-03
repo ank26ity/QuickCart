@@ -410,8 +410,8 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
     }
 
     // 2B. Auth Refresh Token
-    if (method == "POST" && path == "/api/auth/refresh-token") {
-        QString refToken = bodyObj.value("refreshToken").toString();
+    if (method == "POST" && (path == "/api/auth/refresh-token" || path == "/api/auth/refresh")) {
+        QString refToken = bodyObj.value("refreshToken").toString(bodyObj.value("refresh_token").toString());
         if (!refToken.isEmpty() && !refToken.contains("expired")) {
             QJsonObject resp;
             resp["accessToken"] = "mock_refreshed_access_token_" + QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -560,7 +560,7 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
     }
 
     // 8. Order Status Update
-    if (method == "PATCH" && path.startsWith("/api/orders/")) {
+    if (method == "PATCH" && path.startsWith("/api/orders/") && !path.endsWith("/assign")) {
         QString orderId = path.mid(QStringLiteral("/api/orders/").length());
         if (m_orders.contains(orderId)) {
             QJsonObject o = m_orders[orderId];
@@ -668,7 +668,7 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
         QStringList parts = path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
         QString orderId = (parts.size() >= 3) ? parts.at(2) : QString();
         QString submittedOtp = bodyObj.value("otp").toString().trimmed();
-        QString expectedOtp = m_orderOtps.value(orderId);
+        QString expectedOtp = m_orderOtps.value(orderId, QStringLiteral("1234"));
 
         if (!expectedOtp.isEmpty() && submittedOtp == expectedOtp) {
             if (m_orders.contains(orderId)) {

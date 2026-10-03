@@ -77,6 +77,11 @@ export function createApiRouter(db: Db, client: MongoClient, realtimeService?: R
       return;
     }
 
+    if (user.status === 'suspended' || user.isSuspended === true) {
+      res.status(403).json({ error: 'Forbidden', message: 'User account has been suspended by administration', statusCode: 403 });
+      return;
+    }
+
     // Verify password if user has passwordHash and plain password is provided
     if (user.passwordHash && password && !password.startsWith('mock_')) {
       const valid = await authService.verifyPassword(user.passwordHash, password);
@@ -154,21 +159,31 @@ export function createApiRouter(db: Db, client: MongoClient, realtimeService?: R
   router.post('/auth/signup-request', handleSignup);
   router.post('/auth/signup', handleSignup);
 
-  router.post('/auth/refresh-token', async (req: Request, res: Response) => {
-    const { refreshToken } = req.body;
-    if (!refreshToken) {
+  const handleRefresh = async (req: Request, res: Response) => {
+    const token = req.body.refreshToken || req.body.refresh_token;
+    if (!token) {
       res.status(401).json({ error: 'Unauthorized', message: 'Refresh token required' });
       return;
     }
 
-    const result = await authService.rotateRefreshToken(refreshToken);
-    if (!result) {
-      res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired refresh token' });
-      return;
+    try {
+      const result = await authService.rotateRefreshToken(token);
+      if (!result) {
+        res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired refresh token' });
+        return;
+      }
+      res.status(200).json(result);
+    } catch (err: any) {
+      res.status(err.status || 401).json({
+        error: err.error || 'Unauthorized',
+        message: err.message || 'Refresh token rotation failed',
+        code: err.code
+      });
     }
+  };
 
-    res.status(200).json(result);
-  });
+  router.post('/auth/refresh', handleRefresh);
+  router.post('/auth/refresh-token', handleRefresh);
 
   router.post('/auth/otp/send', async (req: Request, res: Response) => {
     const { phone } = req.body;
@@ -187,9 +202,13 @@ export function createApiRouter(db: Db, client: MongoClient, realtimeService?: R
       return;
     }
 
-    const isValid = await authService.verifyOtp(phone, otp);
-    if (!isValid) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid verification code' });
+    try {
+      await authService.verifyOtp(phone, otp);
+    } catch (err: any) {
+      res.status(err.status || 400).json({
+        error: err.error || 'Bad Request',
+        message: err.message || 'Invalid verification code'
+      });
       return;
     }
 
@@ -322,12 +341,12 @@ export function createApiRouter(db: Db, client: MongoClient, realtimeService?: R
   });
 
   // ── Orders Endpoints ──────────────────────────────────────────────────────
-  router.get('/orders', async (req: Request, res: Response) => {
+  router.get('/orders', authenticateJwt, async (req: AuthenticatedRequest, res: Response) => {
     const orders = await orderService.listOrders();
     res.status(200).json(orders.map(o => ({ ...o, _id: o._id.toString() })));
   });
 
-  router.post('/orders', async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/orders', authenticateJwt, async (req: AuthenticatedRequest, res: Response) => {
     const { shopId, deliveryAddress, items, idempotency_key, idempotencyKey } = req.body;
     const key = idempotency_key || idempotencyKey;
 
@@ -349,7 +368,7 @@ export function createApiRouter(db: Db, client: MongoClient, realtimeService?: R
     }
   });
 
-  router.patch('/orders/:id', async (req: AuthenticatedRequest, res: Response) => {
+  router.patch('/orders/:id', authenticateJwt, async (req: AuthenticatedRequest, res: Response) => {
     const orderId = req.params.id as string;
     const { status } = req.body;
 
@@ -390,12 +409,12 @@ export function createApiRouter(db: Db, client: MongoClient, realtimeService?: R
     res.status(200).json(updated);
   });
 
-  router.patch('/orders/:id/assign', async (req: Request, res: Response) => {
+  router.patch('/orders/:id/assign', authenticateJwt, async (req: AuthenticatedRequest, res: Response) => {
     const orderId = req.params.id as string;
-    const courierId = req.body.delivery_boy_id;
+    const courierId = req.body.courierId || req.body.delivery_boy_id || req.user?.userId;
 
     if (!courierId) {
-      res.status(400).json({ error: 'Bad Request', message: 'delivery_boy_id required' });
+      res.status(400).json({ error: 'Bad Request', message: 'courierId required' });
       return;
     }
 
@@ -419,7 +438,7 @@ export function createApiRouter(db: Db, client: MongoClient, realtimeService?: R
     }
   });
 
-  router.post('/orders/:id/verify-delivery-otp', async (req: Request, res: Response) => {
+  router.post('/orders/:id/verify-delivery-otp', authenticateJwt, async (req: AuthenticatedRequest, res: Response) => {
     const orderId = req.params.id as string;
     const { otp } = req.body;
 

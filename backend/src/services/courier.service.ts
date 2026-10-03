@@ -8,7 +8,40 @@ export class CourierService {
   public async claimOrder(orderId: string, courierId: string): Promise<any> {
     const oId = ObjectId.isValid(orderId) ? new ObjectId(orderId) : orderId;
 
-    // Check if order exists
+    // 1. Verify courier user eligibility from users collection
+    const cId = ObjectId.isValid(courierId) ? new ObjectId(courierId) : courierId;
+    const courierUser = await this.db.collection('users').findOne({
+      $or: [{ _id: cId as any }, { _id: courierId as any }]
+    });
+
+    if (courierUser) {
+      if (courierUser.status === 'suspended' || courierUser.isSuspended === true) {
+        throw {
+          status: 403,
+          error: 'Forbidden',
+          message: 'Courier account is suspended and cannot accept orders'
+        };
+      }
+
+      const compliance = courierUser.complianceStatus || courierUser.compliance_status;
+      if (compliance !== 'approved') {
+        throw {
+          status: 403,
+          error: 'Forbidden',
+          message: 'Courier account documents are not approved. Approval required before accepting orders.'
+        };
+      }
+
+      if (courierUser.isOnline === false || courierUser.onDuty === false) {
+        throw {
+          status: 400,
+          error: 'Bad Request',
+          message: 'Courier is currently off-duty. Must be on-duty/online to claim orders.'
+        };
+      }
+    }
+
+    // 2. Check if order exists
     const order = await this.db.collection('orders').findOne({
       $or: [{ _id: oId as any }, { _id: orderId as any }]
     });
@@ -17,26 +50,39 @@ export class CourierService {
       throw { status: 404, message: 'Order not found' };
     }
 
-    // Atomic claim: only succeeds if delivery_boy_id is null/unset OR already claimed by the exact same courier
+    // 3. Status must strictly be 'ready' for courier claim
+    if (order.status !== 'ready') {
+      throw {
+        status: 400,
+        error: 'Invalid order status',
+        message: `Order cannot be claimed in '${order.status}' status. Must be in 'ready' status.`
+      };
+    }
+
+    // 4. Atomic claim: filter on status 'ready', courierId null/unset or already assigned to same courier
+    // Drop duplicate delivery_boy_id: unify exclusively to courierId
     const result = await this.db.collection('orders').findOneAndUpdate(
       {
         $and: [
           { $or: [{ _id: oId as any }, { _id: orderId as any }] },
+          { status: 'ready' },
           {
             $or: [
-              { delivery_boy_id: null },
-              { delivery_boy_id: { $exists: false } },
-              { delivery_boy_id: courierId }
+              { courierId: null },
+              { courierId: { $exists: false } },
+              { courierId: courierId }
             ]
           }
         ]
       },
       {
         $set: {
-          delivery_boy_id: courierId,
           courierId: courierId,
           status: 'assigned',
           updatedAt: new Date()
+        },
+        $unset: {
+          delivery_boy_id: ""
         }
       },
       { returnDocument: 'after' }

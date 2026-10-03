@@ -135,10 +135,15 @@ void NetworkManager::sendRequest(const QString &verb, const QString &endpoint, c
             interceptor->onResponse(reply, respBytes);
         }
 
-        // 4A. Handle 401 Unauthorized with token refresh rotation
-        if (httpCode == 401 && SecureStorage::instance() && !SecureStorage::instance()->refreshToken().isEmpty()) {
+        // 4A. Handle 401 Unauthorized with token refresh rotation (exclude auth endpoints and only attempt once)
+        bool isAuthEndpoint =
+            endpoint.contains(QStringLiteral("/auth/login")) || endpoint.contains(QStringLiteral("/auth/refresh")) ||
+            endpoint.contains(QStringLiteral("/auth/signup")) || endpoint.contains(QStringLiteral("/auth/otp")) ||
+            endpoint.contains(QStringLiteral("/admin/audit-logs"));
+        if (httpCode == 401 && attempt == 0 && !isAuthEndpoint && SecureStorage::instance() &&
+            !SecureStorage::instance()->refreshToken().isEmpty()) {
             qCWarning(qcAuth) << "Received 401 Unauthorized for" << endpoint << "- Queuing for token refresh";
-            PendingRequest pr{verb, endpoint, data, attempt, callback};
+            PendingRequest pr{verb, endpoint, data, attempt + 1, callback};
             m_refreshQueue.enqueue(pr);
             if (!m_isRefreshingToken) {
                 handleTokenRefresh();
@@ -146,9 +151,10 @@ void NetworkManager::sendRequest(const QString &verb, const QString &endpoint, c
             return;
         }
 
-        // 4B. Handle transient errors with exponential backoff & jitter
-        bool isTransientError =
-            (httpCode == 502 || httpCode == 503 || httpCode == 504 || reply->error() == QNetworkReply::TimeoutError);
+        // 4B. Handle transient server errors (NEVER retry 4xx client errors)
+        bool isClientError = (httpCode >= 400 && httpCode < 500);
+        bool isTransientError = !isClientError && (httpCode == 502 || httpCode == 503 || httpCode == 504 ||
+                                                   reply->error() == QNetworkReply::TimeoutError);
         int maxRetries = AppConfig::instance() ? AppConfig::instance()->maxRetryAttempts() : 3;
 
         if (isTransientError && attempt < maxRetries) {
@@ -205,9 +211,10 @@ void NetworkManager::handleTokenRefresh() {
 
     QJsonObject body;
     body["refreshToken"] = refToken;
+    body["refresh_token"] = refToken;
     QByteArray bodyBytes = QJsonDocument(body).toJson(QJsonDocument::Compact);
 
-    QUrl url = QUrl(m_baseUrl).resolved(QUrl(QStringLiteral("/api/auth/refresh-token")));
+    QUrl url = QUrl(m_baseUrl).resolved(QUrl(QStringLiteral("/api/auth/refresh")));
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
 
@@ -217,8 +224,20 @@ void NetworkManager::handleTokenRefresh() {
         flushPendingQueue(false);
         return;
     }
-    connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+
+    // Guard refresh call with a 2-second timeout to prevent stalling
+    QTimer *refreshTimeout = new QTimer(reply);
+    refreshTimeout->setSingleShot(true);
+    connect(refreshTimeout, &QTimer::timeout, reply, [reply]() {
+        if (reply->isRunning()) {
+            reply->abort();
+        }
+    });
+    refreshTimeout->start(2000);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, refreshTimeout]() {
+        refreshTimeout->stop();
+        reply->deleteLater();
         int httpCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         m_isRefreshingToken = false;
 
@@ -226,8 +245,10 @@ void NetworkManager::handleTokenRefresh() {
             QByteArray data = reply->readAll();
             QJsonDocument doc = QJsonDocument::fromJson(data);
             if (doc.isObject()) {
-                QString newAccess = doc.object().value("accessToken").toString();
-                QString newRefresh = doc.object().value("refreshToken").toString();
+                QString newAccess =
+                    doc.object().value("accessToken").toString(doc.object().value("access_token").toString());
+                QString newRefresh =
+                    doc.object().value("refreshToken").toString(doc.object().value("refresh_token").toString());
                 if (!newAccess.isEmpty()) {
                     SecureStorage::instance()->saveTokens(
                         newAccess, newRefresh.isEmpty() ? SecureStorage::instance()->refreshToken() : newRefresh);

@@ -9,9 +9,10 @@ import { RealtimeService } from './services/realtime.service';
 
 export function createApp(db: Db, client: MongoClient, realtimeService?: RealtimeService): Express {
   const app = express();
+  app.locals.db = db;
 
   app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'] }));
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
 
   // Security & Observability Middlewares

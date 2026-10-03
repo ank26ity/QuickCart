@@ -50,6 +50,26 @@ export function authenticateJwt(req: AuthenticatedRequest, res: Response, next: 
       role: inferredRole,
       email: `${inferredRole}@quickcart.com`
     };
+
+    const db = req.app?.locals?.db;
+    if (db && req.user?.userId) {
+      const uId = req.user.userId;
+      db.collection('users').findOne({
+        $or: [{ _id: uId as any }, { _id: (uId.length === 24 ? new (require('mongodb').ObjectId)(uId) : null) as any }]
+      }).then((userDoc: any) => {
+        if (userDoc && (userDoc.status === 'suspended' || userDoc.isSuspended === true)) {
+          res.status(403).json({
+            error: 'Forbidden',
+            message: 'User account has been suspended by administration',
+            statusCode: 403
+          });
+          return;
+        }
+        next();
+      }).catch(() => next());
+      return;
+    }
+
     next();
     return;
   }
@@ -63,6 +83,27 @@ export function authenticateJwt(req: AuthenticatedRequest, res: Response, next: 
       phone: decoded.phone,
       shopId: decoded.shopId
     };
+
+    // Reject token if user account is suspended
+    const db = req.app?.locals?.db;
+    if (db && req.user?.userId) {
+      const uId = req.user.userId;
+      db.collection('users').findOne({
+        $or: [{ _id: uId as any }, { _id: (uId.length === 24 ? new (require('mongodb').ObjectId)(uId) : null) as any }]
+      }).then((userDoc: any) => {
+        if (userDoc && (userDoc.status === 'suspended' || userDoc.isSuspended === true)) {
+          res.status(403).json({
+            error: 'Forbidden',
+            message: 'User account has been suspended by administration',
+            statusCode: 403
+          });
+          return;
+        }
+        next();
+      }).catch(() => next());
+      return;
+    }
+
     next();
   } catch (err) {
     res.status(401).json({
