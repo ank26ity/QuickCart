@@ -132,11 +132,13 @@ jobs:
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
 
-      - name: Start Real Backend Test Server
+      - name: Start Real Backend Test Server & Execute CTest
         run: |
           cd backend
           npm ci
-          npx ts-node src/standalone-test-server.ts > backend.log 2>&1 &
+          npx ts-node src/standalone-test-server.ts > ../backend.log 2>&1 &
+          SERVER_PID=$!
+          trap "kill -9 $SERVER_PID 2>/dev/null || true" EXIT
           echo "Waiting for backend server to become ready on http://127.0.0.1:3000/api/health..."
           for i in {1..30}; do
             if curl -s -f http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
@@ -147,12 +149,10 @@ jobs:
           done
           curl -s http://127.0.0.1:3000/api/health || {
             echo "Backend failed to start!"
-            cat backend.log
+            cat ../backend.log
             exit 1
           }
-
-      - name: Execute CTest Suite
-        run: |
+          cd ..
           export QT_QPA_PLATFORM=offscreen
           export QUICKCART_BACKEND_URL=http://127.0.0.1:3000/api
           ctest --test-dir build --output-on-failure
@@ -210,11 +210,13 @@ jobs:
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
 
-      - name: Start Real Backend Test Server
+      - name: Start Real Backend Test Server & Run Sanitized Tests
         run: |
           cd backend
           npm ci
-          npx ts-node src/standalone-test-server.ts > backend.log 2>&1 &
+          npx ts-node src/standalone-test-server.ts > ../backend.log 2>&1 &
+          SERVER_PID=$!
+          trap "kill -9 $SERVER_PID 2>/dev/null || true" EXIT
           echo "Waiting for backend server to become ready on http://127.0.0.1:3000/api/health..."
           for i in {1..30}; do
             if curl -s -f http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
@@ -225,12 +227,10 @@ jobs:
           done
           curl -s http://127.0.0.1:3000/api/health || {
             echo "Backend failed to start!"
-            cat backend.log
+            cat ../backend.log
             exit 1
           }
-
-      - name: Run Sanitized Unit & Flow Tests
-        run: |
+          cd ..
           export QT_QPA_PLATFORM=offscreen
           export QUICKCART_BACKEND_URL=http://127.0.0.1:3000/api
           export ASAN_OPTIONS=detect_leaks=1:abort_on_error=1
@@ -278,11 +278,13 @@ jobs:
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
 
-      - name: Start Real Backend Test Server
+      - name: Start Real Backend Test Server & Execute CTest Suites
         run: |
           cd backend
           npm ci
-          npx ts-node src/standalone-test-server.ts > backend.log 2>&1 &
+          npx ts-node src/standalone-test-server.ts > ../backend.log 2>&1 &
+          SERVER_PID=$!
+          trap "kill -9 $SERVER_PID 2>/dev/null || true" EXIT
           echo "Waiting for backend server to become ready on http://127.0.0.1:3000/api/health..."
           for i in {1..30}; do
             if curl -s -f http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
@@ -293,12 +295,10 @@ jobs:
           done
           curl -s http://127.0.0.1:3000/api/health || {
             echo "Backend failed to start!"
-            cat backend.log
+            cat ../backend.log
             exit 1
           }
-
-      - name: Execute CTest Suites
-        run: |
+          cd ..
           export QT_QPA_PLATFORM=offscreen
           export QUICKCART_BACKEND_URL=http://127.0.0.1:3000/api
           ctest --test-dir build-cov --output-on-failure
