@@ -36,8 +36,11 @@ find_package(Qt6 REQUIRED COMPONENTS
     QuickControls2
     Network
     Concurrent
-    QuickTest
 )
+
+if(NOT ANDROID)
+    find_package(Qt6 OPTIONAL_COMPONENTS QuickTest)
+endif()
 
 
 if(ANDROID)
@@ -478,45 +481,46 @@ target_link_libraries(test_theme_tokens PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6:
 target_include_directories(test_theme_tokens PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core)
 add_test(NAME ThemeTokensTest COMMAND test_theme_tokens)
 
-# 23. Qt Quick Test Suite (TestCase for Theme tokens, Router guards, and Role login flow)
-add_executable(test_qml_suite
-    tests/qml/tst_qml_suite.cpp
-    ${CMAKE_BINARY_DIR}/.qt/rcc/qrc_QuickCart_raw_qml_0.cpp
-    ${CMAKE_BINARY_DIR}/.qt/rcc/qrc_qmake_QuickCart.cpp
-    core/logging.cpp
-    core/appconfig.cpp
-    core/thememanager.cpp
-    core/validators.cpp
-    core/orderstatemachine.cpp
-    security/securestorage.cpp
-    security/permissionmanager.cpp
-    api/networkmanager.cpp
-    api/circuitbreaker.cpp
-    api/apiclient.cpp
-    models/authservice.cpp
-    models/shopmodel.cpp
-    models/productmodel.cpp
-    models/cartmanager.cpp
-    models/ordermodel.cpp
-    tests/tools/mockapiserver.cpp
-)
-target_compile_definitions(test_qml_suite PRIVATE
-    QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/qml"
-    QUICKCART_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
-    QUICKCART_IMPORT_DIR="${CMAKE_BINARY_DIR}"
-)
-target_link_libraries(test_qml_suite PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Qml
-    Qt6::Quick
-    Qt6::QuickTest
-    Qt6::QuickControls2
-    Qt6::Network
-    OpenSSL::SSL
-    OpenSSL::Crypto
-)
-add_test(NAME QmlSuiteTest COMMAND test_qml_suite)
+if(TARGET Qt6::QuickTest)
+    add_executable(test_qml_suite
+        tests/qml/tst_qml_suite.cpp
+        ${CMAKE_BINARY_DIR}/.qt/rcc/qrc_QuickCart_raw_qml_0.cpp
+        ${CMAKE_BINARY_DIR}/.qt/rcc/qrc_qmake_QuickCart.cpp
+        core/logging.cpp
+        core/appconfig.cpp
+        core/thememanager.cpp
+        core/validators.cpp
+        core/orderstatemachine.cpp
+        security/securestorage.cpp
+        security/permissionmanager.cpp
+        api/networkmanager.cpp
+        api/circuitbreaker.cpp
+        api/apiclient.cpp
+        models/authservice.cpp
+        models/shopmodel.cpp
+        models/productmodel.cpp
+        models/cartmanager.cpp
+        models/ordermodel.cpp
+        tests/tools/mockapiserver.cpp
+    )
+    target_compile_definitions(test_qml_suite PRIVATE
+        QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/qml"
+        QUICKCART_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+        QUICKCART_IMPORT_DIR="${CMAKE_BINARY_DIR}"
+    )
+    target_link_libraries(test_qml_suite PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::QuickTest
+        Qt6::QuickControls2
+        Qt6::Network
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+    add_test(NAME QmlSuiteTest COMMAND test_qml_suite)
+endif()
 
 # 24. Domain Models & Framework Deep Coverage Test
 add_executable(test_unit_models_coverage
