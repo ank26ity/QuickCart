@@ -41,6 +41,7 @@ export async function setupTestContext(): Promise<TestContext> {
 
   // Run migrations & seed data
   await runMigration001(db);
+  await seedDatabase(db);
 
   const realtimeService = new RealtimeService(db);
   const app = createApp(db, client, realtimeService);

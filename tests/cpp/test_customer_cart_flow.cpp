@@ -120,8 +120,8 @@ private slots:
 
         // Verify integer paise calculations
         QCOMPARE(cart->subtotalPaise(), 12000LL);
-        QCOMPARE(cart->deliveryFeePaise(), 5000LL);
-        QCOMPARE(cart->totalPaise(), 17000LL);
+        QCOMPARE(cart->deliveryFeePaise(), 4900LL);
+        QCOMPARE(cart->totalPaise(), 16900LL);
 
         // Place order
         QSignalSpy orderPlacedSpy(cart, &CartManager::orderPlacedSuccess);
@@ -215,6 +215,55 @@ private slots:
 
         // Verify currency formatting string
         QCOMPARE(config->formatMoney(cart->totalPaise()), QStringLiteral("349.00"));
+    }
+
+    void testClientEstimateEqualsServerTotal() {
+        AppConfig *config = AppConfig::instance();
+        CartManager *cart = CartManager::instance();
+        cart->clearCart();
+
+        // 1. Fetch server config to dynamically update delivery fee rules from /api/config
+        QSignalSpy configSpy(config, &AppConfig::serverConfigFetched);
+        config->fetchServerConfig();
+        QVERIFY(configSpy.wait(3000));
+
+        // Subtotal below threshold (₹300.00 / 30000 paise < 49900 paise threshold)
+        QVariantMap itemBelow;
+        itemBelow["id"] = "prod_1";
+        itemBelow["shopId"] = "shop_1";
+        itemBelow["name"] = "Item Below Threshold";
+        itemBelow["pricePaise"] = 30000LL;
+        itemBelow["price"] = 300.0;
+        cart->addItem(itemBelow, 5);
+
+        qint64 estimatedFeeBelow = config->calculateDeliveryFeePaise(0.0, cart->subtotalPaise());
+        qint64 estimatedTotalBelow = cart->subtotalPaise() + estimatedFeeBelow;
+
+        QSignalSpy calcSpy1(cart, &CartManager::serverCalculated);
+        cart->syncServerCalculation();
+        QVERIFY(calcSpy1.wait(3000));
+
+        // Verify client estimate equals server total
+        QCOMPARE(estimatedFeeBelow, cart->deliveryFeePaise());
+        QCOMPARE(estimatedTotalBelow, cart->totalPaise());
+        QCOMPARE(cart->deliveryFeePaise(), 4900LL);
+        QCOMPARE(cart->totalPaise(), 34900LL);
+
+        // Subtotal above threshold (₹600.00 / 60000 paise >= 49900 paise threshold) -> free delivery
+        cart->addItem(itemBelow, 5); // qty 2 -> subtotal = 60000 paise
+        qint64 estimatedFeeAbove = config->calculateDeliveryFeePaise(0.0, cart->subtotalPaise());
+
+        qint64 estimatedTotalAbove = cart->subtotalPaise() + estimatedFeeAbove;
+
+        QSignalSpy calcSpy2(cart, &CartManager::serverCalculated);
+        cart->syncServerCalculation();
+        QVERIFY(calcSpy2.wait(3000));
+
+        // Verify client estimate equals server total for free delivery tier
+        QCOMPARE(estimatedFeeAbove, 0LL);
+        QCOMPARE(cart->deliveryFeePaise(), 0LL);
+        QCOMPARE(estimatedTotalAbove, cart->totalPaise());
+        QCOMPARE(cart->totalPaise(), 60000LL);
     }
 };
 

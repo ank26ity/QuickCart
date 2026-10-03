@@ -5,6 +5,7 @@ import path from 'path';
 import { setupTestContext, TestContext } from './test-helper';
 import { OrderStateMachineService, OrderStatus, OrderActor } from '../src/services/order-state-machine.service';
 import { sanitizeUrl, anonymizeIp } from '../src/middleware/request-logger';
+import { toObjectId } from '../src/utils/id';
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -211,20 +212,20 @@ async function runTestSuite() {
     console.log('\n--- 7. Order Validation: Quantity Limits, Cross-Shop & Stock ---');
     // Seed shops and products
     await ctx.db.collection('shops').insertMany([
-      { _id: 'shop_A' as any, name: 'Shop Alpha', category: 'grocery', serviceRadiusKm: 5.0, isOpen: true },
-      { _id: 'shop_B' as any, name: 'Shop Beta', category: 'grocery', serviceRadiusKm: 5.0, isOpen: true }
+      { _id: toObjectId('shop_A'), name: 'Shop Alpha', category: 'grocery', serviceRadiusKm: 5.0, isOpen: true },
+      { _id: toObjectId('shop_B'), name: 'Shop Beta', category: 'grocery', serviceRadiusKm: 5.0, isOpen: true }
     ]);
 
     await ctx.db.collection('products').insertMany([
-      { _id: 'p_alpha_1' as any, shopId: 'shop_A', name: 'Product A1', sellingPricePaise: 5000, isActive: true },
-      { _id: 'p_beta_1' as any, shopId: 'shop_B', name: 'Product B1', sellingPricePaise: 7000, isActive: true },
-      { _id: 'p_inactive' as any, shopId: 'shop_A', name: 'Product Inactive', sellingPricePaise: 5000, isActive: false }
+      { _id: toObjectId('p_alpha_1'), shopId: toObjectId('shop_A'), name: 'Product A1', sellingPricePaise: 5000, isActive: true },
+      { _id: toObjectId('p_beta_1'), shopId: toObjectId('shop_B'), name: 'Product B1', sellingPricePaise: 7000, isActive: true },
+      { _id: toObjectId('p_inactive'), shopId: toObjectId('shop_A'), name: 'Product Inactive', sellingPricePaise: 5000, isActive: false }
     ]);
 
     await ctx.db.collection('inventory').insertMany([
-      { productId: 'p_alpha_1', shopId: 'shop_A', stock: 10, updatedAt: new Date() },
-      { productId: 'p_beta_1', shopId: 'shop_B', stock: 10, updatedAt: new Date() },
-      { productId: 'p_inactive', shopId: 'shop_A', stock: 10, updatedAt: new Date() }
+      { productId: toObjectId('p_alpha_1'), shopId: toObjectId('shop_A'), stock: 10, updatedAt: new Date() },
+      { productId: toObjectId('p_beta_1'), shopId: toObjectId('shop_B'), stock: 10, updatedAt: new Date() },
+      { productId: toObjectId('p_inactive'), shopId: toObjectId('shop_A'), stock: 10, updatedAt: new Date() }
     ]);
 
     const validUserToken = activeToken;
@@ -327,16 +328,16 @@ async function runTestSuite() {
     console.log('\n--- 8. Concurrent Race: Two Buyers Racing for 1 Single Stock ---');
     // Seed item with EXACTLY stock: 1
     await ctx.db.collection('products').insertOne({
-      _id: 'p_rare_1' as any,
-      shopId: 'shop_A',
+      _id: toObjectId('p_rare_1'),
+      shopId: toObjectId('shop_A'),
       name: 'Rare Item (Last Stock)',
       sellingPricePaise: 15000,
       isActive: true
     } as any);
 
     await ctx.db.collection('inventory').insertOne({
-      productId: 'p_rare_1',
-      shopId: 'shop_A',
+      productId: toObjectId('p_rare_1'),
+      shopId: toObjectId('shop_A'),
       stock: 1,
       updatedAt: new Date()
     } as any);
@@ -369,7 +370,7 @@ async function runTestSuite() {
     assert(statuses[0] === 201 && statuses[1] === 409, `Expected [201, 409], got [${statuses[0]}, ${statuses[1]}]`);
 
     // Verify stock is exactly 0 and NEVER negative
-    const finalStock = await ctx.db.collection('inventory').findOne({ productId: 'p_rare_1' });
+    const finalStock = await ctx.db.collection('inventory').findOne({ productId: toObjectId('p_rare_1') });
     assert(finalStock?.stock === 0, `Final stock must be 0, got ${finalStock?.stock}`);
     console.log('  ✓ Concurrent race condition verified: exactly 1 buyer succeeded (201), 1 failed (409), final stock is 0');
 
@@ -417,13 +418,44 @@ async function runTestSuite() {
     assert(!userBOtherKey.body._id || userBOtherKey.body._id !== orderAId, 'Must NEVER return another user order');
     console.log('  ✓ User B prevented from accessing or receiving User A order via shared key (HTTP 403)');
 
+    // Concurrent same-key test: two concurrent requests with identical key and payload
+    const raceKey = 'idemp_race_' + Date.now();
+    const raceOrderPayload = {
+      shopId: 'shop_A',
+      deliveryAddress: 'Address Race 1',
+      items: [{ productId: 'p_alpha_1', quantity: 1 }],
+      idempotencyKey: raceKey
+    };
+
+    const [resRace1, resRace2] = await Promise.all([
+      request(ctx.app)
+        .post('/api/orders')
+        .set('Authorization', `Bearer ${validUserToken}`)
+        .send(raceOrderPayload),
+      request(ctx.app)
+        .post('/api/orders')
+        .set('Authorization', `Bearer ${validUserToken}`)
+        .send(raceOrderPayload)
+    ]);
+
+    assert(
+      (resRace1.status === 201 || resRace1.status === 200) &&
+      (resRace2.status === 201 || resRace2.status === 200),
+      `Concurrent same-key requests must succeed (got ${resRace1.status} and ${resRace2.status})`
+    );
+    assert(
+      resRace1.body._id === resRace2.body._id,
+      `Concurrent requests with same idempotency key must resolve to exact same order ID (${resRace1.body._id} vs ${resRace2.body._id})`
+    );
+    console.log('  ✓ Concurrent requests with identical idempotency key resolve safely to the exact same order');
+
     // ── SUITE 10: Courier Claim Hardening (Item 1) ───────────────────────────
     console.log('\n--- 10. Courier Claim: Status Filter, Approval & Unified courierId ---');
     // Seed courier users:
     const now = new Date();
     await ctx.db.collection('users').insertMany([
       {
-        _id: 'courier_approved' as any,
+        _id: toObjectId('courier_approved'),
         name: 'Courier Approved',
         email: 'courier_approved@quickcart.com',
         phone: '+919100000001',
@@ -438,7 +470,7 @@ async function runTestSuite() {
         updatedAt: now
       },
       {
-        _id: 'courier_unapproved' as any,
+        _id: toObjectId('courier_unapproved'),
         name: 'Courier Unapproved',
         email: 'courier_unapproved@quickcart.com',
         phone: '+919100000002',
@@ -453,7 +485,7 @@ async function runTestSuite() {
         updatedAt: now
       },
       {
-        _id: 'courier_suspended' as any,
+        _id: toObjectId('courier_suspended'),
         name: 'Courier Suspended',
         email: 'courier_suspended@quickcart.com',
         phone: '+919100000003',
@@ -469,7 +501,7 @@ async function runTestSuite() {
         updatedAt: now
       },
       {
-        _id: 'courier_offduty' as any,
+        _id: toObjectId('courier_offduty'),
         name: 'Courier OffDuty',
         email: 'courier_offduty@quickcart.com',
         phone: '+919100000004',
@@ -499,7 +531,7 @@ async function runTestSuite() {
 
     // Advance order to 'ready'
     await ctx.db.collection('orders').updateOne(
-      { _id: pendingOrderId as any },
+      { _id: toObjectId(pendingOrderId) },
       { $set: { status: 'ready' } }
     );
 
@@ -540,6 +572,31 @@ async function runTestSuite() {
     assert(claimApproved.body.courierId === 'courier_approved', 'courierId must be set');
     assert(!claimApproved.body.delivery_boy_id, 'Duplicate delivery_boy_id must be dropped/unset');
     console.log('  ✓ Approved on-duty courier successfully claimed ready order; duplicate delivery_boy_id dropped');
+
+    // Presigned upload URL endpoint tests
+    const presignedRes = await request(ctx.app)
+      .post('/api/uploads/presigned-url')
+      .set('Authorization', 'Bearer mock_jwt_delivery_1')
+      .send({
+        docType: 'driving_license',
+        mimeType: 'image/jpeg',
+        fileSize: 1024 * 500
+      });
+    assert(presignedRes.status === 200, 'Presigned URL generation succeeds');
+    assert(presignedRes.body.uploadUrl && presignedRes.body.uploadUrl.startsWith('https://storage.quickcart.in/upload/'), 'Valid storage URL');
+    assert(presignedRes.body.fileKey.includes('driving_license'), 'File key contains document type');
+    console.log('  ✓ /api/uploads/presigned-url generates signed upload URL with MIME & size validation');
+
+    const invalidMimeRes = await request(ctx.app)
+      .post('/api/uploads/presigned-url')
+      .set('Authorization', 'Bearer mock_jwt_delivery_1')
+      .send({
+        docType: 'script',
+        mimeType: 'application/x-sh',
+        fileSize: 100
+      });
+    assert(invalidMimeRes.status === 400, 'Invalid MIME type rejected');
+    console.log('  ✓ Presigned URL rejects unauthorized MIME types with HTTP 400');
 
     // ── SUITE 11: WebSocket Authentication & Channel Authorization (Item 4) ─
     console.log('\n--- 11. WebSocket Authentication & Channel Authorization ---');
@@ -600,6 +657,35 @@ async function runTestSuite() {
     assert(!!broadcastMsg, 'Direct broadcast delivered to authorized subscriber');
     authorizedWs.close();
     console.log('  ✓ Authorized customer successfully subscribed and received direct broadcast');
+
+    // 3. Suspended user WebSocket closure
+    const suspendWs = new WebSocket(`${wsUrl}?token=${encodeURIComponent(validUserToken)}`);
+    let suspendClosedWithPolicy = false;
+    let receivedCode = 0;
+
+    await new Promise<void>((resolve) => {
+      suspendWs.on('open', async () => {
+        await ctx.db.collection('users').updateOne(
+          { email: 'testuser@quickcart.com' },
+          { $set: { status: 'suspended', isSuspended: true } }
+        );
+        await ctx.realtimeService.disconnectSuspendedClients();
+      });
+      suspendWs.on('close', (code) => {
+        receivedCode = code;
+        if (code === 1008) suspendClosedWithPolicy = true;
+        resolve();
+      });
+      setTimeout(() => resolve(), 1000);
+    });
+
+    await ctx.db.collection('users').updateOne(
+      { email: 'testuser@quickcart.com' },
+      { $set: { status: 'active', isSuspended: false } }
+    );
+
+    assert(suspendClosedWithPolicy || receivedCode === 1008, `Suspended user WebSocket must close with code 1008, got ${receivedCode}`);
+    console.log('  ✓ Suspended user WebSocket automatically closed with code 1008 (Policy Violation)');
 
     // ── SUITE 12: Logging Privacy: URL Sanitization & IP Masking (Item 5) ───
     console.log('\n--- 12. Logging Privacy: URL Query/Coord Stripping & IP Masking ---');

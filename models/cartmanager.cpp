@@ -156,6 +156,7 @@ bool CartManager::addItem(const QVariantMap &product, int maxStock) {
         m_cart.append(entry);
     }
 
+    m_hasServerCalculation = false;
     m_errorMessage.clear();
     emit errorChanged();
     emit cartChanged();
@@ -179,6 +180,7 @@ void CartManager::updateQuantity(const QString &productId, int change) {
                     m_cart.removeAt(i);
                 }
             }
+            m_hasServerCalculation = false;
             m_errorMessage.clear();
             emit errorChanged();
             emit cartChanged();
@@ -189,6 +191,10 @@ void CartManager::updateQuantity(const QString &productId, int change) {
 
 void CartManager::clearCart() {
     m_cart.clear();
+    m_hasServerCalculation = false;
+    m_serverSubtotalPaise = 0;
+    m_serverDeliveryFeePaise = 0;
+    m_serverTotalPaise = 0;
     m_errorMessage.clear();
     emit errorChanged();
     emit cartChanged();

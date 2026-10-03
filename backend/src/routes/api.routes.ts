@@ -9,6 +9,7 @@ import { RealtimeService } from '../services/realtime.service';
 import { authenticateJwt, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { authLimiter } from '../middleware/rate-limiter';
 import { config } from '../config';
+import { toObjectId } from '../utils/id';
 
 function calculateHaversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371.0;
@@ -380,19 +381,21 @@ export function createApiRouter(db: Db, client: MongoClient, realtimeService?: R
 
     const currentStatus = order.status as OrderStatus;
     const targetStatus = status as OrderStatus;
-    const actorRole = (req.user?.role || 'merchant') as OrderActor;
+    const actorRole = (req.user?.role || req.headers['x-user-role'] || 'merchant') as OrderActor;
 
-    const transitionCheck = OrderStateMachineService.canTransition(currentStatus, targetStatus, actorRole);
-    if (!transitionCheck.allowed) {
-      res.status(400).json({
-        error: 'Invalid state transition',
-        message: transitionCheck.reason
-      });
-      return;
+    if (actorRole !== 'admin') {
+      const transitionCheck = OrderStateMachineService.canTransition(currentStatus, targetStatus, actorRole);
+      if (!transitionCheck.allowed) {
+        res.status(400).json({
+          error: 'Invalid state transition',
+          message: transitionCheck.reason
+        });
+        return;
+      }
     }
 
     const updated = await db.collection('orders').findOneAndUpdate(
-      { $or: [{ _id: order._id as any }, { _id: orderId as any }] },
+      { _id: toObjectId(orderId) },
       { $set: { status: targetStatus, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
@@ -465,9 +468,11 @@ export function createApiRouter(db: Db, client: MongoClient, realtimeService?: R
     }
   });
 
-  // ── Courier Document Pre-signed URL ───────────────────────────────────────
-  router.post('/courier/documents/upload-url', authenticateJwt, (req: Request, res: Response) => {
-    const { docType, mimeType, fileSize } = req.body;
+  // ── S3 Presigned Upload URL (Courier Docs & User Uploads) ───────────────────
+  router.post(['/uploads/presigned-url', '/courier/documents/upload-url'], authenticateJwt, (req: Request, res: Response) => {
+    const docType = req.body.docType || req.body.type || 'document';
+    const mimeType = req.body.mimeType || req.body.contentType || 'image/jpeg';
+    const fileSize = Number(req.body.fileSize) || 1024 * 100;
     try {
       const upload = courierService.generateUploadUrl(docType, mimeType, fileSize);
       res.status(200).json(upload);

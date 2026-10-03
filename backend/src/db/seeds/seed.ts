@@ -1,9 +1,10 @@
 import { ObjectId } from 'mongodb';
 import { DatabaseManager } from '../connection';
 import { runMigration001 } from '../migrations/001_create_collections_and_schemas';
+import { toObjectId } from '../../utils/id';
 
-export async function seedDatabase(): Promise<void> {
-  const db = await DatabaseManager.getInstance().connect();
+export async function seedDatabase(customDb?: any): Promise<void> {
+  const db = customDb || await DatabaseManager.getInstance().connect();
   console.log('[Seed] Starting database seed...');
 
   // Ensure schemas & indexes are applied first
@@ -18,13 +19,15 @@ export async function seedDatabase(): Promise<void> {
   const adminId = new ObjectId('650000000000000000000004');
   const shopId = new ObjectId('650000000000000000000010');
 
+  const argon2Hash = '$argon2id$v=19$m=65536,p=4,t=3$fuIvNtyj9ucr7p/gZZvEMw$P8obqjv0gixqcergX2Tg/Uf3NuAjMU3vWVrmgNOB4Tg'; // "Password@123"
+
   const users = [
     {
       _id: customerId,
       name: 'Rohan Sharma',
       email: 'customer@quickcart.com',
       phone: '+919876543210',
-      passwordHash: '$2b$10$wKqK.r57aH8iG2M8.1Y8U.F5b6c7d8e9f0a1b2c3d4e5f6g7h8', // "Password@123"
+      passwordHash: argon2Hash,
       role: 'customer',
       isActive: true,
       version: 1,
@@ -37,7 +40,7 @@ export async function seedDatabase(): Promise<void> {
       name: 'Priya Patel',
       email: 'merchant@quickcart.com',
       phone: '+919876543211',
-      passwordHash: '$2b$10$wKqK.r57aH8iG2M8.1Y8U.F5b6c7d8e9f0a1b2c3d4e5f6g7h8',
+      passwordHash: argon2Hash,
       role: 'shopkeeper',
       shopId: shopId,
       isActive: true,
@@ -51,8 +54,46 @@ export async function seedDatabase(): Promise<void> {
       name: 'Amit Kumar',
       email: 'courier@quickcart.com',
       phone: '+919876543212',
-      passwordHash: '$2b$10$wKqK.r57aH8iG2M8.1Y8U.F5b6c7d8e9f0a1b2c3d4e5f6g7h8',
+      passwordHash: argon2Hash,
       role: 'delivery',
+      complianceStatus: 'approved',
+      onDuty: true,
+      isOnline: true,
+      status: 'active',
+      isActive: true,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
+    },
+    {
+      _id: new ObjectId('650000000000000000000005'),
+      name: 'Courier User 1',
+      email: 'user_courier_1@quickcart.com',
+      phone: '+919876543214',
+      passwordHash: argon2Hash,
+      role: 'delivery',
+      complianceStatus: 'approved',
+      onDuty: true,
+      isOnline: true,
+      status: 'active',
+      isActive: true,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
+    },
+    {
+      _id: toObjectId('user_courier_1'),
+      name: 'Courier User 1 (Alias)',
+      email: 'courier_1@quickcart.com',
+      phone: '+919876543219',
+      passwordHash: argon2Hash,
+      role: 'delivery',
+      complianceStatus: 'approved',
+      onDuty: true,
+      isOnline: true,
+      status: 'active',
       isActive: true,
       version: 1,
       createdAt: now,
@@ -64,7 +105,7 @@ export async function seedDatabase(): Promise<void> {
       name: 'System Admin',
       email: 'admin@quickcart.com',
       phone: '+919876543213',
-      passwordHash: '$2b$10$wKqK.r57aH8iG2M8.1Y8U.F5b6c7d8e9f0a1b2c3d4e5f6g7h8',
+      passwordHash: argon2Hash,
       role: 'admin',
       isActive: true,
       version: 1,
@@ -113,7 +154,7 @@ export async function seedDatabase(): Promise<void> {
     await db.collection('categories').updateOne({ _id: c._id }, { $set: c }, { upsert: true });
   }
 
-  // 3. SEED SHOPS (GeoJSON coordinates [lng, lat] within 3km of Connaught Place 77.2090, 28.6139)
+  // 3. SEED SHOPS (GeoJSON coordinates [lng, lat])
   const shops = [
     {
       _id: shopId,
@@ -127,10 +168,12 @@ export async function seedDatabase(): Promise<void> {
         type: 'Point',
         coordinates: [77.2185, 28.6315] // ~1.8 km from center
       },
+      lat: 28.6315,
+      lng: 77.2185,
       rating: 4.8,
       totalRatings: 342,
       isOpen: true,
-      serviceRadiusKm: 3.0,
+      serviceRadiusKm: 5.0,
       version: 1,
       createdAt: now,
       updatedAt: now,
@@ -148,10 +191,58 @@ export async function seedDatabase(): Promise<void> {
         type: 'Point',
         coordinates: [77.2250, 28.6280] // ~1.5 km
       },
+      lat: 28.6280,
+      lng: 77.2250,
       rating: 4.6,
       totalRatings: 180,
       isOpen: true,
-      serviceRadiusKm: 3.0,
+      serviceRadiusKm: 5.0,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
+    },
+    {
+      _id: new ObjectId('650000000000000000000012'),
+      name: 'Fresh Mart Daily Bangalore',
+      ownerId: merchantId,
+      category: 'Grocery',
+      description: 'Daily fresh farm vegetables, dairy, and household essentials in Bangalore',
+      image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=600',
+      address: '100 Feet Rd, Indiranagar, Bangalore',
+      location: {
+        type: 'Point',
+        coordinates: [77.5946, 12.9716]
+      },
+      lat: 12.9716,
+      lng: 77.5946,
+      rating: 4.8,
+      totalRatings: 342,
+      isOpen: true,
+      serviceRadiusKm: 10.0,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
+    },
+    {
+      _id: toObjectId('shop_1'),
+      name: 'Fresh Mart Daily Bangalore (Shop 1)',
+      ownerId: merchantId,
+      category: 'Grocery',
+      description: 'Daily fresh farm vegetables, dairy, and household essentials in Bangalore',
+      image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=600',
+      address: '100 Feet Rd, Indiranagar, Bangalore',
+      location: {
+        type: 'Point',
+        coordinates: [77.5946, 12.9716]
+      },
+      lat: 12.9716,
+      lng: 77.5946,
+      rating: 4.8,
+      totalRatings: 342,
+      isOpen: true,
+      serviceRadiusKm: 10.0,
       version: 1,
       createdAt: now,
       updatedAt: now,
@@ -189,24 +280,19 @@ export async function seedDatabase(): Promise<void> {
       deletedAt: null
     },
     {
-      _id: prod2Id,
-      shopId: shopId,
+      _id: toObjectId('prod_1'),
+      shopId: new ObjectId('650000000000000000000012'),
       categoryId: catDairyId,
-      name: 'Artisan Sourdough Bread 400g',
-      description: 'Slow-fermented artisan crusty sourdough loaf',
-      image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=400',
-      mrpPaise: 12000, // ₹120.00
-      sellingPricePaise: 11000, // ₹110.00
-      gstRatePercent: 0,
-      isVeg: true,
-      unit: 'pack',
-      variants: [],
-      modifiers: [],
+      name: 'Organic Fresh Milk 1L',
+      description: 'Farm-fresh milk in Bangalore',
+      mrpPaise: 12000,
+      sellingPricePaise: 12000,
+      pricePaise: 12000,
+      price: 120,
       isActive: true,
       version: 1,
       createdAt: now,
-      updatedAt: now,
-      deletedAt: null
+      updatedAt: now
     }
   ];
 
@@ -233,6 +319,30 @@ export async function seedDatabase(): Promise<void> {
       shopId: shopId,
       productId: prod2Id,
       stock: 4, // Triggers "Low Stock" badge in UI (<= 5)
+      reservedStock: 0,
+      lowStockThreshold: 5,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
+    },
+    {
+      _id: new ObjectId(),
+      shopId: new ObjectId('650000000000000000000012'),
+      productId: toObjectId('prod_1'),
+      stock: 100,
+      reservedStock: 0,
+      lowStockThreshold: 5,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
+    },
+    {
+      _id: new ObjectId(),
+      shopId: toObjectId('shop_1'),
+      productId: toObjectId('prod_1'),
+      stock: 100,
       reservedStock: 0,
       lowStockThreshold: 5,
       version: 1,
@@ -276,6 +386,21 @@ export async function seedDatabase(): Promise<void> {
   await db.collection('couriers').updateOne(
     { userId: courierId },
     { $set: courierProfile },
+    { upsert: true }
+  );
+
+  // 6. SEED APP CONFIG
+  await db.collection('app_config').updateOne(
+    { key: 'delivery_config' },
+    {
+      $set: {
+        key: 'delivery_config',
+        defaultDeliveryFeePaise: 4900,
+        freeDeliveryThresholdPaise: 49900,
+        deliveryFeePaise: 4900,
+        updatedAt: now
+      }
+    },
     { upsert: true }
   );
 

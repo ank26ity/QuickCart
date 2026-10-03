@@ -121,7 +121,7 @@ export async function runMigration001(db: Db): Promise<void> {
             mrpPaise: { bsonType: ['int', 'double'] },
             sellingPricePaise: { bsonType: ['int', 'double'] },
             pricePaise: { bsonType: ['int', 'double'] },
-            price: { bsonType: 'double' },
+            price: { bsonType: ['double', 'int'] },
             stock: { bsonType: ['int', 'double'] },
             gstRatePercent: { bsonType: ['int', 'double'] },
             isVeg: { bsonType: 'bool' },
@@ -189,10 +189,10 @@ export async function runMigration001(db: Db): Promise<void> {
     });
   }
   await db.collection('orders').createIndex({ orderNumber: 1 }, { unique: true });
-  await db.collection('orders').createIndex({ customerId: 1, createdAt: -1 });
   await db.collection('orders').createIndex({ shopId: 1, status: 1, createdAt: -1 });
   await db.collection('orders').createIndex({ courierId: 1, status: 1 });
-  await db.collection('orders').createIndex({ idempotencyKey: 1 }, { unique: true });
+  await db.collection('orders').createIndex({ customerId: 1, createdAt: -1 });
+  await db.collection('orders').createIndex({ customerId: 1, idempotencyKey: 1 }, { unique: true });
 
   // 7. COURIERS COLLECTION
   if (!existingCollections.includes('couriers')) {

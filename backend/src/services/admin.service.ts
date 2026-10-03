@@ -1,4 +1,5 @@
 import { Db, ObjectId } from 'mongodb';
+import { toObjectId } from '../utils/id';
 
 export class AdminService {
   constructor(private db: Db) {}
@@ -62,10 +63,10 @@ export class AdminService {
   }
 
   public async approveCourier(courierId: string) {
-    const cId = ObjectId.isValid(courierId) ? new ObjectId(courierId) : courierId;
+    const cId = toObjectId(courierId);
 
     await this.db.collection('users').updateOne(
-      { $or: [{ _id: cId as any }, { _id: courierId as any }, { email: courierId }] },
+      { _id: cId },
       { $set: { complianceStatus: 'approved', updatedAt: new Date() } }
     );
 
@@ -74,10 +75,10 @@ export class AdminService {
   }
 
   public async suspendUser(userId: string) {
-    const uId = ObjectId.isValid(userId) ? new ObjectId(userId) : userId;
+    const uId = toObjectId(userId);
 
     await this.db.collection('users').updateOne(
-      { $or: [{ _id: uId as any }, { _id: userId as any }, { email: userId }] },
+      { _id: uId },
       { $set: { status: 'suspended', isActive: false, updatedAt: new Date() } }
     );
 
@@ -86,11 +87,12 @@ export class AdminService {
   }
 
   public async manualDispatch(orderId: string, courierId: string) {
-    const oId = ObjectId.isValid(orderId) ? new ObjectId(orderId) : orderId;
+    const oId = toObjectId(orderId);
+    const cId = toObjectId(courierId);
 
     await this.db.collection('orders').updateOne(
-      { $or: [{ _id: oId as any }, { _id: orderId as any }] },
-      { $set: { delivery_boy_id: courierId, courierId, status: 'assigned', updatedAt: new Date() } }
+      { _id: oId },
+      { $set: { courierId: cId, status: 'assigned', updatedAt: new Date() }, $unset: { delivery_boy_id: "" } }
     );
 
     await this.logAction('manual_dispatch', orderId, { courierId });

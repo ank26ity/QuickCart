@@ -75,9 +75,9 @@ private:
     int m_timeoutMs{10000};
     int m_maxRetries{3};
     QVariantMap m_featureFlags;
-    qint64 m_baseDeliveryFeePaise{3500};
-    qint64 m_perKmFeePaise{1000};
-    qint64 m_freeDeliveryThresholdPaise{50000};
+    qint64 m_baseDeliveryFeePaise{4900};
+    qint64 m_perKmFeePaise{0};
+    qint64 m_freeDeliveryThresholdPaise{49900};
 
     void updateUrlsForEnvironment();
 };
