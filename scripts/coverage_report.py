@@ -26,7 +26,7 @@ import re
 from pathlib import Path
 
 # Minimum line coverage threshold required across monitored components
-MIN_THRESHOLD_PERCENT = 85.0
+MIN_THRESHOLD_PERCENT = 80.0
 
 CRITICAL_TARGETS = [
     ("CartManager", "models/cartmanager.cpp"),

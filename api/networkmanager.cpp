@@ -181,18 +181,16 @@ void NetworkManager::sendRequest(const QString &verb, const QString &endpoint, c
             return;
         }
 
-        // 4D. Parse JSON off main thread via QtConcurrent
+        // 4D. Parse JSON in-thread
         m_circuitBreaker.recordSuccess(endpoint);
-        (void)QtConcurrent::run([respBytes, callback]() {
-            QJsonParseError parseError;
-            QJsonDocument doc = QJsonDocument::fromJson(respBytes, &parseError);
-            if (parseError.error != QJsonParseError::NoError && !respBytes.isEmpty()) {
-                AppError err = AppError::server(QStringLiteral("JSON parse error: ") + parseError.errorString());
-                callback(Result<QJsonDocument>::error(err));
-            } else {
-                callback(Result<QJsonDocument>::ok(doc));
-            }
-        });
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(respBytes, &parseError);
+        if (parseError.error != QJsonParseError::NoError && !respBytes.isEmpty()) {
+            AppError err = AppError::server(QStringLiteral("JSON parse error: ") + parseError.errorString());
+            callback(Result<QJsonDocument>::error(err));
+        } else {
+            callback(Result<QJsonDocument>::ok(doc));
+        }
     });
 }
 
