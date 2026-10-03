@@ -41,7 +41,8 @@ private:
         QTimer::singleShot(2000, &loop, &QEventLoop::quit);
         loop.exec();
 
-        bool ok = (reply->isFinished() && reply->error() == QNetworkReply::NoError && reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200);
+        bool ok = (reply->isFinished() && reply->error() == QNetworkReply::NoError &&
+                   reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200);
         reply->deleteLater();
         return ok;
     }
@@ -81,8 +82,10 @@ private:
             bool foundCornerPharmacy = false;
             for (int i = 0; i < shops.count(); ++i) {
                 QString name = shops.getShopAt(i).value(QStringLiteral("name")).toString();
-                if (name == QStringLiteral("Fresh Mart Daily")) foundFreshMart = true;
-                if (name == QStringLiteral("Corner Pharmacy")) foundCornerPharmacy = true;
+                if (name == QStringLiteral("Fresh Mart Daily"))
+                    foundFreshMart = true;
+                if (name == QStringLiteral("Corner Pharmacy"))
+                    foundCornerPharmacy = true;
             }
             QVERIFY(foundFreshMart);
             QVERIFY(foundCornerPharmacy);
@@ -159,13 +162,10 @@ private slots:
         m_realBackendUrl = qEnvironmentVariable("QUICKCART_BACKEND_URL", QStringLiteral("http://127.0.0.1:3000/api"));
         m_hasRealBackend = checkServerHealth(m_realBackendUrl);
         qInfo() << "TestContractBackend initialized. Mock URL:" << m_mockServer.url()
-                << "| Real Backend URL:" << m_realBackendUrl
-                << "| Real Backend Accessible:" << m_hasRealBackend;
+                << "| Real Backend URL:" << m_realBackendUrl << "| Real Backend Accessible:" << m_hasRealBackend;
     }
 
-    void cleanupTestCase() {
-        m_mockServer.stop();
-    }
+    void cleanupTestCase() { m_mockServer.stop(); }
 
     void testContractAgainstMockApiServer() {
         executeContractFlowAgainstServer(m_mockServer.url() + QStringLiteral("/api"), QStringLiteral("MockApiServer"));
