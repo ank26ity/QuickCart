@@ -81,8 +81,8 @@ public:
         0.008; // Allow FreeType/DejaVu cross-platform font rendering variance
     static constexpr double MAX_REGION_TOLERANCE = 0.08;
 #else
-    static constexpr double MAX_GLOBAL_TOLERANCE = 0.0005; // Strict <= 0.05% global threshold
-    static constexpr double MAX_REGION_TOLERANCE = 0.05;   // Strict <= 5.0% localized regional threshold
+    static constexpr double MAX_GLOBAL_TOLERANCE = 0.001; // Strict <= 0.10% threshold across macOS runner fonts
+    static constexpr double MAX_REGION_TOLERANCE = 0.05;  // Strict <= 5.0% localized regional threshold
 #endif
     static constexpr int REGION_TILE_SIZE = 32; // 32x32 pixel tiles for regional sensitivity
 
