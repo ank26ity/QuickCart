@@ -51,7 +51,7 @@ export async function setupTestContext(): Promise<TestContext> {
 
   const targetPort = parseInt(process.env.PORT || '0', 10);
   await new Promise<void>((resolve) => {
-    server.listen(targetPort, '127.0.0.1', () => resolve());
+    server.listen(targetPort, '0.0.0.0', () => resolve());
   });
 
   const address = server.address() as any;

@@ -138,24 +138,32 @@ jobs:
           npm ci
           npx ts-node src/standalone-test-server.ts > ../backend.log 2>&1 &
           SERVER_PID=$!
+          echo "Server PID: $SERVER_PID"
           trap "kill -9 $SERVER_PID 2>/dev/null || true" EXIT
           echo "Waiting for backend server to become ready on http://127.0.0.1:3000/api/health..."
-          for i in {1..30}; do
+          READY=0
+          for i in {1..60}; do
             if curl -s -f http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
               echo "Backend is ready! (Attempt $i)"
+              READY=1
               break
             fi
             sleep 1
           done
-          curl -s http://127.0.0.1:3000/api/health || {
-            echo "Backend failed to start!"
+          if [ $READY -ne 1 ]; then
+            echo "Backend failed to start within 60 seconds!"
             cat ../backend.log
             exit 1
-          }
+          fi
+          curl -s http://127.0.0.1:3000/api/health
           cd ..
           export QT_QPA_PLATFORM=offscreen
           export QUICKCART_BACKEND_URL=http://127.0.0.1:3000/api
-          ctest --test-dir build --output-on-failure
+          if ! ctest --test-dir build --output-on-failure; then
+            echo "=== CTest Failed! Printing backend.log ==="
+            cat backend.log 2>/dev/null || cat ../backend.log 2>/dev/null || true
+            exit 8
+          fi
 
       - name: Upload UI Screenshots
         if: always()
@@ -216,27 +224,35 @@ jobs:
           npm ci
           npx ts-node src/standalone-test-server.ts > ../backend.log 2>&1 &
           SERVER_PID=$!
+          echo "Server PID: $SERVER_PID"
           trap "kill -9 $SERVER_PID 2>/dev/null || true" EXIT
           echo "Waiting for backend server to become ready on http://127.0.0.1:3000/api/health..."
-          for i in {1..30}; do
+          READY=0
+          for i in {1..60}; do
             if curl -s -f http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
               echo "Backend is ready! (Attempt $i)"
+              READY=1
               break
             fi
             sleep 1
           done
-          curl -s http://127.0.0.1:3000/api/health || {
-            echo "Backend failed to start!"
+          if [ $READY -ne 1 ]; then
+            echo "Backend failed to start within 60 seconds!"
             cat ../backend.log
             exit 1
-          }
+          fi
+          curl -s http://127.0.0.1:3000/api/health
           cd ..
           export QT_QPA_PLATFORM=offscreen
           export QUICKCART_BACKEND_URL=http://127.0.0.1:3000/api
           export ASAN_OPTIONS=detect_leaks=1:abort_on_error=1
           export LSAN_OPTIONS=suppressions=${{ github.workspace }}/scripts/lsan.supp:print_suppressions=0
           export UBSAN_OPTIONS=halt_on_error=0:print_stacktrace=1
-          ctest --test-dir build-asan --output-on-failure
+          if ! ctest --test-dir build-asan --output-on-failure; then
+            echo "=== CTest Failed! Printing backend.log ==="
+            cat backend.log 2>/dev/null || cat ../backend.log 2>/dev/null || true
+            exit 8
+          fi
 
   # ── 4. Code Coverage Threshold Enforcement ────────────────────────────────
   coverage:
@@ -284,24 +300,32 @@ jobs:
           npm ci
           npx ts-node src/standalone-test-server.ts > ../backend.log 2>&1 &
           SERVER_PID=$!
+          echo "Server PID: $SERVER_PID"
           trap "kill -9 $SERVER_PID 2>/dev/null || true" EXIT
           echo "Waiting for backend server to become ready on http://127.0.0.1:3000/api/health..."
-          for i in {1..30}; do
+          READY=0
+          for i in {1..60}; do
             if curl -s -f http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
               echo "Backend is ready! (Attempt $i)"
+              READY=1
               break
             fi
             sleep 1
           done
-          curl -s http://127.0.0.1:3000/api/health || {
-            echo "Backend failed to start!"
+          if [ $READY -ne 1 ]; then
+            echo "Backend failed to start within 60 seconds!"
             cat ../backend.log
             exit 1
-          }
+          fi
+          curl -s http://127.0.0.1:3000/api/health
           cd ..
           export QT_QPA_PLATFORM=offscreen
           export QUICKCART_BACKEND_URL=http://127.0.0.1:3000/api
-          ctest --test-dir build-cov --output-on-failure
+          if ! ctest --test-dir build-cov --output-on-failure; then
+            echo "=== CTest Failed! Printing backend.log ==="
+            cat backend.log 2>/dev/null || cat ../backend.log 2>/dev/null || true
+            exit 8
+          fi
 
       - name: Enforce Minimum Coverage Threshold
         run: python3 scripts/coverage_report.py build-cov

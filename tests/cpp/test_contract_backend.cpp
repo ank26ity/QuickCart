@@ -35,20 +35,25 @@ private:
     bool m_hasRealBackend{false};
 
     bool checkServerHealth(const QString &url) {
-        QNetworkAccessManager nam;
-        QNetworkRequest req(QUrl(url + QStringLiteral("/health")));
-        req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-        QNetworkReply *reply = nam.get(req);
+        for (int attempt = 0; attempt < 5; ++attempt) {
+            QNetworkAccessManager nam;
+            QNetworkRequest req(QUrl(url + QStringLiteral("/health")));
+            req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+            QNetworkReply *reply = nam.get(req);
 
-        QEventLoop loop;
-        connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-        QTimer::singleShot(2500, &loop, &QEventLoop::quit);
-        loop.exec();
+            QEventLoop loop;
+            connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+            QTimer::singleShot(5000, &loop, &QEventLoop::quit);
+            loop.exec();
 
-        bool ok = (reply->isFinished() && reply->error() == QNetworkReply::NoError &&
-                   reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200);
-        reply->deleteLater();
-        return ok;
+            bool ok = (reply->isFinished() && reply->error() == QNetworkReply::NoError &&
+                       reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200);
+            reply->deleteLater();
+            if (ok)
+                return true;
+            QTest::qWait(500);
+        }
+        return false;
     }
 
     void executeContractFlowAgainstServer(const QString &serverBaseUrl, const QString &serverName) {
@@ -304,6 +309,14 @@ private slots:
 
         m_realBackendUrl = qEnvironmentVariable("QUICKCART_BACKEND_URL", QStringLiteral("http://127.0.0.1:3000/api"));
         m_hasRealBackend = checkServerHealth(m_realBackendUrl);
+        if (!m_hasRealBackend && m_realBackendUrl.contains(QStringLiteral("127.0.0.1"))) {
+            QString altUrl =
+                QString(m_realBackendUrl).replace(QStringLiteral("127.0.0.1"), QStringLiteral("localhost"));
+            if (checkServerHealth(altUrl)) {
+                m_realBackendUrl = altUrl;
+                m_hasRealBackend = true;
+            }
+        }
         qInfo() << "TestContractBackend initialized. Mock URL:" << m_mockServer.url()
                 << "| Real Backend URL:" << m_realBackendUrl << "| Real Backend Accessible:" << m_hasRealBackend;
     }

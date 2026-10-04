@@ -15,6 +15,14 @@ async function start() {
   process.on('SIGTERM', shutdown);
 }
 
+process.on('uncaughtException', (err) => {
+  console.error('[QuickCart Test Backend] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[QuickCart Test Backend] Unhandled Rejection:', reason);
+});
+
 start().catch((err) => {
   console.error('[QuickCart Test Backend] Failed to start:', err);
   process.exit(1);
