@@ -7,7 +7,10 @@ import { OrderStateMachineService, OrderStatus, OrderActor } from '../src/servic
 import { sanitizeUrl, anonymizeIp } from '../src/middleware/request-logger';
 import { toObjectId } from '../src/utils/id';
 
+let totalAssertions = 0;
+
 function assert(condition: boolean, msg: string) {
+  totalAssertions++;
   if (!condition) {
     throw new Error(`Assertion failed: ${msg}`);
   }
@@ -116,6 +119,19 @@ async function runTestSuite() {
       .send({ refreshToken: rotatedRefresh2 });
     assert(followUpRes.status === 401, 'Session family revoked: subsequent active tokens in family invalidated');
     console.log('  ✓ Session family revocation verified: compromise causes complete invalidation');
+
+    // NoSQL Operator Injection Security Checks
+    const nosqlBodyRes = await request(ctx.app)
+      .post('/api/auth/login-request')
+      .send({ email: { $ne: null }, password: 'bad' });
+    assert(nosqlBodyRes.status === 400, 'NoSQL operator injection in body must return HTTP 400');
+    assert(nosqlBodyRes.body.error === 'Invalid request parameter', 'NoSQL error header must match');
+    console.log('  ✓ NoSQL injection in body rejected with HTTP 400');
+
+    const nosqlQueryRes = await request(ctx.app)
+      .get('/api/shops?category[$ne]=grocery');
+    assert(nosqlQueryRes.status === 400, 'NoSQL operator injection in query must return HTTP 400');
+    console.log('  ✓ NoSQL injection in query rejected with HTTP 400');
 
     // ── SUITE 4: Suspended User Token Rejection (Item 6) ─────────────────────
     console.log('\n--- 4. Suspended User Token Immediate Rejection ---');
@@ -514,6 +530,21 @@ async function runTestSuite() {
         version: 1,
         createdAt: now,
         updatedAt: now
+      },
+      {
+        _id: toObjectId('courier_approved_2'),
+        name: 'Courier Approved 2',
+        email: 'courier_approved_2@quickcart.com',
+        phone: '+919100000005',
+        role: 'delivery',
+        complianceStatus: 'approved',
+        isOnline: true,
+        onDuty: true,
+        status: 'active',
+        isActive: true,
+        version: 1,
+        createdAt: now,
+        updatedAt: now
       }
     ]);
 
@@ -573,6 +604,16 @@ async function runTestSuite() {
     assert(!claimApproved.body.delivery_boy_id, 'Duplicate delivery_boy_id must be dropped/unset');
     console.log('  ✓ Approved on-duty courier successfully claimed ready order; duplicate delivery_boy_id dropped');
 
+    // 6. Double claim attempt: second courier claims already claimed order -> 409 Conflict
+    const doubleClaimRes = await request(ctx.app)
+      .patch(`/api/orders/${pendingOrderId}/assign`)
+      .set('Authorization', 'Bearer mock_jwt_delivery_2')
+      .set('x-user-role', 'delivery')
+      .send({ delivery_boy_id: 'courier_approved_2' });
+    assert(doubleClaimRes.status === 409, `Double claim attempt must return 409 Conflict, got ${doubleClaimRes.status}`);
+    assert(doubleClaimRes.body.error === 'Conflict', 'Error must be Conflict');
+    console.log('  ✓ Double-claim prevention: second courier rejected with HTTP 409 Conflict');
+
     // Presigned upload URL endpoint tests
     const presignedRes = await request(ctx.app)
       .post('/api/uploads/presigned-url')
@@ -585,7 +626,26 @@ async function runTestSuite() {
     assert(presignedRes.status === 200, 'Presigned URL generation succeeds');
     assert(presignedRes.body.uploadUrl && presignedRes.body.uploadUrl.startsWith('https://storage.quickcart.in/upload/'), 'Valid storage URL');
     assert(presignedRes.body.fileKey.includes('driving_license'), 'File key contains document type');
-    console.log('  ✓ /api/uploads/presigned-url generates signed upload URL with MIME & size validation');
+    assert(presignedRes.body.method === 'POST', 'Presigned upload method must be POST');
+    assert(Array.isArray(presignedRes.body.conditions), 'Presigned POST conditions must be an array');
+    const rangeCondition = presignedRes.body.conditions.find((c: any) => Array.isArray(c) && c[0] === 'content-length-range');
+    assert(!!rangeCondition, 'Conditions must enforce content-length-range');
+    console.log('  ✓ /api/uploads/presigned-url generates signed POST upload policy with content-length-range & MIME validation');
+
+    // Post-upload document verification
+    const verifyDocRes = await request(ctx.app)
+      .post('/api/courier/documents/verify')
+      .set('Authorization', 'Bearer mock_jwt_delivery_1')
+      .send({
+        courierId: 'courier_approved',
+        docType: 'driving_license',
+        fileKey: presignedRes.body.fileKey,
+        actualBytes: 1024 * 500,
+        actualMime: 'image/jpeg'
+      });
+    assert(verifyDocRes.status === 200, 'Post-upload verification succeeded');
+    assert(verifyDocRes.body.verified === true, 'Document marked as verified');
+    console.log('  ✓ Post-upload verification validates file metadata and sets verified status');
 
     const invalidMimeRes = await request(ctx.app)
       .post('/api/uploads/presigned-url')
@@ -733,6 +793,7 @@ async function runTestSuite() {
     const duration = ((Date.now() - startMs) / 1000).toFixed(2);
     console.log('\n====================================================');
     console.log(`ALL 13 BACKEND TEST SUITES PASSED CLEANLY (${duration}s)`);
+    console.log(`Verified ${totalAssertions} assertions across 13 test suites.`);
     console.log('====================================================');
   } finally {
     await ctx.close();

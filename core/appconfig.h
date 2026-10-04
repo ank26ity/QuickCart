@@ -53,6 +53,7 @@ public:
 
     Q_INVOKABLE qint64 calculateDeliveryFeePaise(double distanceKm, qint64 subtotalPaise) const;
     Q_INVOKABLE QString formatMoney(qint64 paise) const;
+    Q_INVOKABLE QString formatPaise(qint64 paise) const;
 
     Q_INVOKABLE bool isFeatureEnabled(const QString &featureName) const;
     Q_INVOKABLE void setFeatureFlag(const QString &featureName, bool enabled);

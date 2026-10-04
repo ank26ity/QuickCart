@@ -197,26 +197,87 @@ private:
             createdOrderId = ord.value(QStringLiteral("_id")).toString(ord.value(QStringLiteral("id")).toString());
             QVERIFY(!createdOrderId.isEmpty());
             QVERIFY(ord.contains(QStringLiteral("status")));
+
+            // Assert totals in integer paise on backend response
+            QCOMPARE(ord.value(QStringLiteral("subtotalPaise")).toVariant().toLongLong(), 12000LL);
+            QCOMPARE(ord.value(QStringLiteral("deliveryFeePaise")).toVariant().toLongLong(), 4900LL);
+            QCOMPARE(ord.value(QStringLiteral("totalPaise")).toVariant().toLongLong(), 16900LL);
             reply->deleteLater();
         }
 
-        // 6. Transition Order to 'ready' (Merchant/Admin update)
+        // 6. Transition Order via Merchant Workflow: accept -> preparing -> ready
         {
-            QJsonObject statusReq;
-            statusReq[QStringLiteral("status")] = QStringLiteral("ready");
+            // 6a. Merchant accepts order: pending -> accepted
+            {
+                QJsonObject statusReq;
+                statusReq[QStringLiteral("status")] = QStringLiteral("accepted");
 
-            QNetworkAccessManager nam;
-            QNetworkRequest req(QUrl(serverBaseUrl + QStringLiteral("/orders/") + createdOrderId));
-            req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-            req.setRawHeader("Authorization", "Bearer mock_jwt_admin_1");
-            req.setRawHeader("x-user-role", "admin");
-            QNetworkReply *reply =
-                nam.sendCustomRequest(req, "PATCH", QJsonDocument(statusReq).toJson(QJsonDocument::Compact));
+                QNetworkAccessManager nam;
+                QNetworkRequest req(QUrl(serverBaseUrl + QStringLiteral("/orders/") + createdOrderId));
+                req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+                req.setRawHeader("Authorization", "Bearer mock_jwt_merchant_1");
+                req.setRawHeader("x-user-role", "merchant");
+                QNetworkReply *reply =
+                    nam.sendCustomRequest(req, "PATCH", QJsonDocument(statusReq).toJson(QJsonDocument::Compact));
 
-            QEventLoop loop;
-            connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-            loop.exec();
-            reply->deleteLater();
+                QEventLoop loop;
+                connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+                loop.exec();
+
+                int patchCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                QVERIFY(patchCode == 200);
+                QJsonObject patchObj = QJsonDocument::fromJson(reply->readAll()).object();
+                QCOMPARE(patchObj.value(QStringLiteral("status")).toString(), QStringLiteral("accepted"));
+                reply->deleteLater();
+            }
+
+            // 6b. Merchant starts preparation: accepted -> preparing
+            {
+                QJsonObject statusReq;
+                statusReq[QStringLiteral("status")] = QStringLiteral("preparing");
+
+                QNetworkAccessManager nam;
+                QNetworkRequest req(QUrl(serverBaseUrl + QStringLiteral("/orders/") + createdOrderId));
+                req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+                req.setRawHeader("Authorization", "Bearer mock_jwt_merchant_1");
+                req.setRawHeader("x-user-role", "merchant");
+                QNetworkReply *reply =
+                    nam.sendCustomRequest(req, "PATCH", QJsonDocument(statusReq).toJson(QJsonDocument::Compact));
+
+                QEventLoop loop;
+                connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+                loop.exec();
+
+                int patchCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                QVERIFY(patchCode == 200);
+                QJsonObject patchObj = QJsonDocument::fromJson(reply->readAll()).object();
+                QCOMPARE(patchObj.value(QStringLiteral("status")).toString(), QStringLiteral("preparing"));
+                reply->deleteLater();
+            }
+
+            // 6c. Merchant marks ready for pickup: preparing -> ready
+            {
+                QJsonObject statusReq;
+                statusReq[QStringLiteral("status")] = QStringLiteral("ready");
+
+                QNetworkAccessManager nam;
+                QNetworkRequest req(QUrl(serverBaseUrl + QStringLiteral("/orders/") + createdOrderId));
+                req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+                req.setRawHeader("Authorization", "Bearer mock_jwt_merchant_1");
+                req.setRawHeader("x-user-role", "merchant");
+                QNetworkReply *reply =
+                    nam.sendCustomRequest(req, "PATCH", QJsonDocument(statusReq).toJson(QJsonDocument::Compact));
+
+                QEventLoop loop;
+                connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+                loop.exec();
+
+                int patchCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                QVERIFY(patchCode == 200);
+                QJsonObject patchObj = QJsonDocument::fromJson(reply->readAll()).object();
+                QCOMPARE(patchObj.value(QStringLiteral("status")).toString(), QStringLiteral("ready"));
+                reply->deleteLater();
+            }
         }
 
         // 7. Courier Claim: Assign to courier (Double-claim protected)

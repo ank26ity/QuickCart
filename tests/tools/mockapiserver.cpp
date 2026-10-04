@@ -544,6 +544,17 @@ void MockApiServer::processHttpRequest(QTcpSocket *socket, const QByteArray &raw
         newOrder["status"] = "pending";
         newOrder["created_at"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
 
+        qint64 subtotal = 0;
+        QJsonArray items = bodyObj.value("items").toArray();
+        for (const auto &it : items) {
+            QJsonObject itemObj = it.toObject();
+            subtotal += itemObj.value("pricePaise").toVariant().toLongLong() * itemObj.value("quantity").toVariant().toLongLong();
+        }
+        if (subtotal == 0) subtotal = 12000;
+        newOrder["subtotalPaise"] = subtotal;
+        newOrder["deliveryFeePaise"] = 4900;
+        newOrder["totalPaise"] = subtotal + 4900;
+
         m_orders[orderId] = newOrder;
         sendJsonResponse(socket, 201, QJsonDocument(newOrder));
         return;

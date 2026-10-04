@@ -1,4 +1,5 @@
 #include "appconfig.h"
+#include "moneyformatter.h"
 #include "../api/networkmanager.h"
 #include <QtCore/QCoreApplication>
 #include <QtCore/QProcessEnvironment>
@@ -179,8 +180,11 @@ qint64 AppConfig::calculateDeliveryFeePaise(double distanceKm, qint64 subtotalPa
 }
 
 QString AppConfig::formatMoney(qint64 paise) const {
-    double rupees = paise / 100.0;
-    return QString::asprintf("%.2f", rupees);
+    return MoneyFormatter::formatPaise(paise, false);
+}
+
+QString AppConfig::formatPaise(qint64 paise) const {
+    return MoneyFormatter::formatPaise(paise, true);
 }
 
 void AppConfig::fetchServerConfig() {

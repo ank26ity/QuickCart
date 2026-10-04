@@ -1,15 +1,21 @@
 /**
  * @file securestorage.h
- * @brief Hardware-backed and AES-256-GCM encrypted credential and token storage interface.
+ * @brief Hardware-backed credential and token storage interface.
  * @layer Security (Layer 2 - Core Services)
  *
+ * Supported Target Platforms:
+ * - iOS: Apple Keychain Services (Secure Enclave hardware-backed)
+ * - Android: Android Keystore Provider (hardware-backed key encrypting with AES-256-GCM)
+ * - Windows: Windows DPAPI (Data Protection API with user-credential hardware bound key)
+ * - macOS: Apple Keychain (developer machine and iOS test runner host)
+ *
+ * Note: Linux is NOT a supported target platform. All file-based key fallbacks
+ * have been eliminated in favor of strict OS hardware keystores.
+ *
  * Cryptographic Architecture:
- * - Cipher: AES-256
- * - Mode: GCM (Galois/Counter Mode) authenticated encryption with 96-bit (12-byte) IV and 128-bit (16-byte) tag
- * - Key Source: Random 256-bit symmetric master key generated via CSPRNG (RAND_bytes) and held in OS Keystore
- *               (Apple Keychain, Windows Credential Manager, Android Keystore, Linux Secret Service / encrypted vault).
+ * - Cipher: AES-256-GCM with 96-bit (12-byte) IV and 128-bit (16-byte) tag
+ * - Key Source: Random 256-bit symmetric key via CSPRNG (RAND_bytes) held in OS Keystore.
  *               NEVER derived from machine GUID or machine-id.
- * - Backends: macOS/iOS Keychain, Windows Credential Manager, Android Keystore, and Hardware-Encrypted Vault.
  *
  * Tests:
  * - Covered by tests/cpp/test_securestorage.cpp
@@ -26,7 +32,12 @@ class SecureStorage : public QObject {
     Q_OBJECT
 
 public:
-    enum class Backend { PlatformDefault, WindowsCredManager, AndroidKeystore, EncryptedVault };
+    enum class Backend {
+        PlatformDefault,
+        AppleKeychain,
+        WindowsDPAPI,
+        AndroidKeystore
+    };
     Q_ENUM(Backend)
 
     explicit SecureStorage(QObject *parent = nullptr);
@@ -47,12 +58,12 @@ public:
     Q_INVOKABLE QString getSecret(const QString &key) const;
 
     /**
-     * @brief Delete a secret from keystore and encrypted fallback store.
+     * @brief Delete a secret from keystore.
      */
     Q_INVOKABLE bool deleteSecret(const QString &key);
 
     /**
-     * @brief Purge all session credentials, tokens, and encryption identifiers.
+     * @brief Purge all session credentials and tokens.
      */
     Q_INVOKABLE void clearAllSecrets();
 
@@ -87,12 +98,6 @@ public:
     void setBackendForTesting(Backend backend);
     Backend activeBackend() const;
 
-    // Cryptographic Primitives (AES-256-GCM, CSPRNG)
-    static QByteArray encryptAesGcm(const QByteArray &plain, const QByteArray &key,
-                                    const QByteArray &iv = QByteArray());
-    static QByteArray decryptAesGcm(const QByteArray &cipherWithTagAndIv, const QByteArray &key);
-    static QByteArray generateRandomKey(int length = 32);
-
 signals:
     void secretsChanged();
 
@@ -103,19 +108,13 @@ private:
     bool deleteFromKeychain(const QString &key);
 #endif
 
-    bool saveToWindowsCredManager(const QString &key, const QByteArray &data);
-    QByteArray getFromWindowsCredManager(const QString &key) const;
-    bool deleteFromWindowsCredManager(const QString &key);
+    bool saveToWindowsDPAPI(const QString &key, const QByteArray &data);
+    QByteArray getFromWindowsDPAPI(const QString &key) const;
+    bool deleteFromWindowsDPAPI(const QString &key);
 
     bool saveToAndroidKeystore(const QString &key, const QByteArray &data);
     QByteArray getFromAndroidKeystore(const QString &key) const;
     bool deleteFromAndroidKeystore(const QString &key);
-
-    bool saveToEncryptedStore(const QString &key, const QByteArray &data);
-    QByteArray getFromEncryptedStore(const QString &key) const;
-    bool deleteFromEncryptedStore(const QString &key);
-
-    QByteArray getOrCreateMasterVaultKey() const;
 
     Backend m_activeBackend{Backend::PlatformDefault};
 };

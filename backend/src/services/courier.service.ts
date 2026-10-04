@@ -65,6 +65,14 @@ export class CourierService {
       throw { status: 404, message: 'Order not found' };
     }
 
+    if (order.status === 'assigned' || order.courierId) {
+      throw {
+        status: 409,
+        error: 'Conflict',
+        message: 'Order has already been claimed by another courier'
+      };
+    }
+
     if (order.status !== 'ready') {
       throw {
         status: 400,
@@ -171,9 +179,48 @@ export class CourierService {
       uploadUrl,
       fileKey,
       expiresAt: new Date(expiresAt).toISOString(),
+      method: 'POST',
+      fields: {
+        key: fileKey,
+        'Content-Type': mimeType,
+        'x-amz-signature': signature
+      },
+      conditions: [
+        ['content-length-range', 1024, 5242880], // Enforce 1KB to 5MB file size
+        { 'Content-Type': mimeType }
+      ],
       headers: {
         'Content-Type': mimeType
       }
     };
+  }
+
+  public async verifyUploadedDocument(courierId: string, docType: string, fileKey: string, actualBytes: number, actualMime: string) {
+    const allowedMime = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowedMime.includes(actualMime)) {
+      throw { status: 400, message: `Post-upload verification failed: forbidden MIME type '${actualMime}'. Allowed: JPEG, PNG, PDF.` };
+    }
+    if (actualBytes <= 0 || actualBytes > 5 * 1024 * 1024) {
+      throw { status: 400, message: `Post-upload verification failed: invalid size ${actualBytes} bytes (must be between 1 byte and 5MB).` };
+    }
+
+    const cId = toObjectId(courierId);
+    await this.db.collection('users').updateOne(
+      { _id: cId },
+      {
+        $set: {
+          [`documents.${docType}`]: {
+            fileKey,
+            mimeType: actualMime,
+            sizeBytes: actualBytes,
+            verified: true,
+            uploadedAt: new Date()
+          },
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    return { success: true, verified: true, docType, fileKey };
   }
 }

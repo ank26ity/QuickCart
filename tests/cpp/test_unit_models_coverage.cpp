@@ -520,24 +520,13 @@ private slots:
         QVERIFY(storage->accessToken().isEmpty());
         QVERIFY(storage->refreshToken().isEmpty());
 
-        // Key encryption with custom IV
-        QByteArray key = SecureStorage::generateRandomKey(32);
-        QByteArray iv = SecureStorage::generateRandomKey(12);
-        QByteArray plain = "Extended Confidential Payload";
-        QByteArray cipher = SecureStorage::encryptAesGcm(plain, key, iv);
-        QVERIFY(!cipher.isEmpty());
-        QCOMPARE(SecureStorage::decryptAesGcm(cipher, key), plain);
-
-        // Decrypt short cipher error
-        QCOMPARE(SecureStorage::decryptAesGcm(QByteArray("short"), key), QByteArray());
-
         // Save and delete
         storage->saveSecret(QStringLiteral("temp_secret_key"), QStringLiteral("secret_val"));
         QVERIFY(storage->deleteSecret(QStringLiteral("temp_secret_key")));
 
-        // EncryptedVault Backend explicit path
-        storage->setBackendForTesting(SecureStorage::Backend::EncryptedVault);
-        QCOMPARE(storage->activeBackend(), SecureStorage::Backend::EncryptedVault);
+        // WindowsDPAPI Backend explicit path
+        storage->setBackendForTesting(SecureStorage::Backend::WindowsDPAPI);
+        QCOMPARE(storage->activeBackend(), SecureStorage::Backend::WindowsDPAPI);
         QVERIFY(storage->saveSecret(QStringLiteral("vault_key"), QStringLiteral("vault_secret_val")));
         QCOMPARE(storage->getSecret(QStringLiteral("vault_key")), QStringLiteral("vault_secret_val"));
         QVERIFY(storage->deleteSecret(QStringLiteral("vault_key")));

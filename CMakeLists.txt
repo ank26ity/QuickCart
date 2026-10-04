@@ -61,6 +61,10 @@ if(APPLE)
     list(APPEND SECURITY_LIBS "-framework Security" "-framework CoreFoundation")
 endif()
 
+if(WIN32)
+    list(APPEND SECURITY_LIBS crypt32)
+endif()
+
 if(COMMAND qt_policy)
     qt_policy(SET QTP0001 NEW)
     qt_policy(SET QTP0004 NEW)
@@ -73,6 +77,7 @@ set(PROJECT_SOURCES
     core/logging.cpp
     core/appconfig.h
     core/appconfig.cpp
+    core/moneyformatter.h
     core/thememanager.h
     core/thememanager.cpp
     core/validators.h
@@ -112,6 +117,18 @@ set_target_properties(QuickCart PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER "com.quickshopp.quickcart"
     OUTPUT_NAME "QuickCartApp"
 )
+
+if(ANDROID)
+    set_target_properties(QuickCart PROPERTIES
+        QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android"
+    )
+endif()
+
+if(IOS)
+    set_target_properties(QuickCart PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/Info.plist"
+    )
+endif()
 
 # Declare singletons with QT_QML_SINGLETON_TYPE
 set_source_files_properties(
@@ -239,6 +256,19 @@ add_executable(test_orderstatemachine tests/cpp/test_orderstatemachine.cpp core/
 target_link_libraries(test_orderstatemachine PRIVATE Qt6::Core Qt6::Test)
 target_include_directories(test_orderstatemachine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core)
 add_test(NAME OrderStateMachineTest COMMAND test_orderstatemachine)
+
+# 6b. Money Formatter Test
+add_executable(test_money_formatter
+    tests/cpp/test_money_formatter.cpp
+    core/appconfig.cpp
+    core/logging.cpp
+    api/networkmanager.cpp
+    api/circuitbreaker.cpp
+    security/securestorage.cpp
+)
+target_link_libraries(test_money_formatter PRIVATE Qt6::Core Qt6::Network Qt6::Concurrent Qt6::Test ${SECURITY_LIBS})
+target_include_directories(test_money_formatter PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/core ${CMAKE_CURRENT_SOURCE_DIR}/security ${CMAKE_CURRENT_SOURCE_DIR}/api)
+add_test(NAME MoneyFormatterTest COMMAND test_money_formatter)
 
 # 7. Permission Manager Test
 add_executable(test_permissionmanager

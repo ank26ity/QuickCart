@@ -15,74 +15,22 @@ private slots:
 
     void cleanup() { SecureStorage::instance()->resetForTesting(); }
 
-    void testAesGcmEncryptionDecryptionRoundtrip() {
-        QByteArray key = SecureStorage::generateRandomKey(32);
-        QCOMPARE(key.size(), 32);
-
-        QByteArray plaintext = "Confidential customer session payload: user=customer_42,role=customer";
-        QByteArray ciphertext = SecureStorage::encryptAesGcm(plaintext, key);
-
-        QVERIFY(!ciphertext.isEmpty());
-        // Minimum size: 12 (IV) + 16 (Tag) + plaintext.size()
-        QVERIFY(ciphertext.size() >= 28 + plaintext.size());
-
-        QByteArray decrypted = SecureStorage::decryptAesGcm(ciphertext, key);
-        QCOMPARE(decrypted, plaintext);
-
-        // Edge case validations
-        QVERIFY(SecureStorage::encryptAesGcm("", key).isEmpty());
-        QVERIFY(SecureStorage::encryptAesGcm("test", "short_key").isEmpty());
-        QVERIFY(SecureStorage::decryptAesGcm("short", key).isEmpty());
-        QVERIFY(SecureStorage::decryptAesGcm(ciphertext, "short_key").isEmpty());
-    }
-
-    void testAesGcmTamperDetection() {
-        QByteArray key = SecureStorage::generateRandomKey(32);
-        QByteArray plaintext = "QuickCart critical bank/UPI payment token";
-        QByteArray ciphertext = SecureStorage::encryptAesGcm(plaintext, key);
-
-        QVERIFY(ciphertext.size() >= 28);
-
-        // Scenario 1: Flip a bit in the ciphertext body
-        QByteArray tamperedCipher = ciphertext;
-        tamperedCipher[tamperedCipher.size() - 1] ^= 0x01;
-        QByteArray tamperedDecrypted = SecureStorage::decryptAesGcm(tamperedCipher, key);
-        QVERIFY2(tamperedDecrypted.isEmpty(), "Tampered ciphertext payload must fail GCM authentication");
-
-        // Scenario 2: Flip a bit in the authentication tag (bytes 12..27)
-        QByteArray tamperedTag = ciphertext;
-        tamperedTag[14] ^= 0xFF;
-        QByteArray tagTamperDecrypted = SecureStorage::decryptAesGcm(tamperedTag, key);
-        QVERIFY2(tagTamperDecrypted.isEmpty(), "Tampered GCM tag must fail authentication");
-
-        // Scenario 3: Decrypt with a different 256-bit key
-        QByteArray wrongKey = SecureStorage::generateRandomKey(32);
-        QByteArray wrongKeyDecrypted = SecureStorage::decryptAesGcm(ciphertext, wrongKey);
-        QVERIFY2(wrongKeyDecrypted.isEmpty(), "Decryption with incorrect key must fail authentication");
-    }
-
-    void testAesGcmNonceUniqueness() {
-        QByteArray key = SecureStorage::generateRandomKey(32);
-        QByteArray plaintext = "Identical repeated token";
-
-        QByteArray cipher1 = SecureStorage::encryptAesGcm(plaintext, key);
-        QByteArray cipher2 = SecureStorage::encryptAesGcm(plaintext, key);
-
-        // Every encryption must generate a fresh 96-bit CSPRNG IV
-        QVERIFY(!cipher1.isEmpty());
-        QVERIFY(!cipher2.isEmpty());
-        QVERIFY(cipher1 != cipher2);
-        QVERIFY(cipher1.left(12) != cipher2.left(12));
-
-        // Both decrypt to identical original plaintext
-        QCOMPARE(SecureStorage::decryptAesGcm(cipher1, key), plaintext);
-        QCOMPARE(SecureStorage::decryptAesGcm(cipher2, key), plaintext);
-    }
-
-    void testWindowsCredentialManagerBackend() {
+    void testBackendEnumCoverage() {
         SecureStorage *store = SecureStorage::instance();
-        store->setBackendForTesting(SecureStorage::Backend::WindowsCredManager);
-        QCOMPARE(store->activeBackend(), SecureStorage::Backend::WindowsCredManager);
+        store->setBackendForTesting(SecureStorage::Backend::AppleKeychain);
+        QCOMPARE(store->activeBackend(), SecureStorage::Backend::AppleKeychain);
+        store->setBackendForTesting(SecureStorage::Backend::WindowsDPAPI);
+        QCOMPARE(store->activeBackend(), SecureStorage::Backend::WindowsDPAPI);
+        store->setBackendForTesting(SecureStorage::Backend::AndroidKeystore);
+        QCOMPARE(store->activeBackend(), SecureStorage::Backend::AndroidKeystore);
+        store->setBackendForTesting(SecureStorage::Backend::PlatformDefault);
+        QCOMPARE(store->activeBackend(), SecureStorage::Backend::PlatformDefault);
+    }
+
+    void testWindowsDPAPIBackend() {
+        SecureStorage *store = SecureStorage::instance();
+        store->setBackendForTesting(SecureStorage::Backend::WindowsDPAPI);
+        QCOMPARE(store->activeBackend(), SecureStorage::Backend::WindowsDPAPI);
 
         QString testKey = QStringLiteral("win_session_token");
         QString testVal = QStringLiteral("win_jwt_secret_value_12345");
@@ -90,8 +38,26 @@ private slots:
         QVERIFY(store->saveSecret(testKey, testVal));
         QCOMPARE(store->getSecret(testKey), testVal);
 
+#if defined(Q_OS_WIN)
+        // Verify real Windows DPAPI created encrypted file on disk
+        QString appDataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        QString dpapiFile = appDataDir + QStringLiteral("/dpapi_") +
+            QCryptographicHash::hash(testKey.toUtf8(), QCryptographicHash::Sha256).toHex() + QStringLiteral(".dat");
+        QVERIFY2(QFile::exists(dpapiFile), "Real DPAPI encrypted file must exist on disk");
+        QFile file(dpapiFile);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QByteArray cipherBytes = file.readAll();
+        file.close();
+        // Ciphertext on disk must NOT equal plaintext
+        QVERIFY(cipherBytes != testVal.toUtf8());
+#endif
+
         QVERIFY(store->deleteSecret(testKey));
         QVERIFY(store->getSecret(testKey).isEmpty());
+
+#if defined(Q_OS_WIN)
+        QVERIFY2(!QFile::exists(dpapiFile), "DPAPI encrypted file must be purged after deleteSecret");
+#endif
     }
 
     void testAndroidKeystoreBackend() {
@@ -109,19 +75,21 @@ private slots:
         QVERIFY(store->getSecret(testKey).isEmpty());
     }
 
-    void testEncryptedVaultBackend() {
+    void testAppleKeychainBackend() {
+#if defined(Q_OS_MACOS) || defined(Q_OS_IOS)
         SecureStorage *store = SecureStorage::instance();
-        store->setBackendForTesting(SecureStorage::Backend::EncryptedVault);
-        QCOMPARE(store->activeBackend(), SecureStorage::Backend::EncryptedVault);
+        store->setBackendForTesting(SecureStorage::Backend::AppleKeychain);
+        QCOMPARE(store->activeBackend(), SecureStorage::Backend::AppleKeychain);
 
-        QString testKey = QStringLiteral("vault_api_key");
-        QString testVal = QStringLiteral("vault_secret_key_value_999");
+        QString testKey = QStringLiteral("apple_keychain_token");
+        QString testVal = QStringLiteral("apple_keychain_secret_999");
 
         QVERIFY(store->saveSecret(testKey, testVal));
         QCOMPARE(store->getSecret(testKey), testVal);
 
         QVERIFY(store->deleteSecret(testKey));
         QVERIFY(store->getSecret(testKey).isEmpty());
+#endif
     }
 
     void testSaveAndRetrieveSecretDefault() {
@@ -164,64 +132,16 @@ private slots:
         QVERIFY(store->refreshToken().isEmpty());
     }
 
-    void testMasterKeyFileFallback() {
-        SecureStorage *store = SecureStorage::instance();
-        store->resetForTesting();
-
-        QString appDataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        QString masterKeyFile = appDataDir + QStringLiteral("/.qc_master.key");
-
-        // 1. Pre-seed file with 32-byte key
-        QFile file(masterKeyFile);
-        QVERIFY(file.open(QIODevice::WriteOnly));
-        QByteArray seededKey = SecureStorage::generateRandomKey(32);
-        file.write(seededKey);
-        file.close();
-
-        store->setBackendForTesting(SecureStorage::Backend::EncryptedVault);
-        QVERIFY(store->saveSecret(QStringLiteral("k1"), QStringLiteral("v1")));
-        QCOMPARE(store->getSecret(QStringLiteral("k1")), QStringLiteral("v1"));
-
-        // 2. Remove file and reset - triggers fresh generation and write to file
-        store->resetForTesting();
-        QVERIFY(store->saveSecret(QStringLiteral("k2"), QStringLiteral("v2")));
-        QCOMPARE(store->getSecret(QStringLiteral("k2")), QStringLiteral("v2"));
-        QVERIFY(QFile::exists(masterKeyFile));
-
-        store->setBackendForTesting(SecureStorage::Backend::PlatformDefault);
-    }
-
-    void testWindowsCredentialManagerSizeLimit() {
-        SecureStorage *store = SecureStorage::instance();
-        store->setBackendForTesting(SecureStorage::Backend::WindowsCredManager);
-
-        // 1. Storing 32-byte master key or standard JWT token (< 2560 bytes) succeeds
-        QByteArray validToken(512, 'X');
-        QVERIFY(store->saveSecret(QStringLiteral("valid_win_token"), QString::fromUtf8(validToken)));
-        QCOMPARE(store->getSecret(QStringLiteral("valid_win_token")).toUtf8(), validToken);
-
-        // 2. Exactly 2560 bytes succeeds
-        QByteArray boundaryToken(2560, 'Y');
-        QVERIFY(store->saveSecret(QStringLiteral("boundary_token"), QString::fromUtf8(boundaryToken)));
-        QCOMPARE(store->getSecret(QStringLiteral("boundary_token")).toUtf8(), boundaryToken);
-
-        // 3. Exceeding 2560 bytes (e.g. 2561 bytes) is rejected
-        QByteArray oversizedToken(2561, 'Z');
-        QVERIFY(!store->saveSecret(QStringLiteral("oversized_token"), QString::fromUtf8(oversizedToken)));
-
-        store->setBackendForTesting(SecureStorage::Backend::PlatformDefault);
-    }
-
     void testMultiPlatformBackends() {
         SecureStorage *store = SecureStorage::instance();
 
-        // Windows backend
-        store->setBackendForTesting(SecureStorage::Backend::WindowsCredManager);
+        // Windows DPAPI backend
+        store->setBackendForTesting(SecureStorage::Backend::WindowsDPAPI);
         QVERIFY(store->saveSecret(QStringLiteral("win_key"), QStringLiteral("win_val")));
         QCOMPARE(store->getSecret(QStringLiteral("win_key")), QStringLiteral("win_val"));
         QVERIFY(store->deleteSecret(QStringLiteral("win_key")));
 
-        // Android backend
+        // Android Keystore backend
         store->setBackendForTesting(SecureStorage::Backend::AndroidKeystore);
         QVERIFY(store->saveSecret(QStringLiteral("droid_key"), QStringLiteral("droid_val")));
         QCOMPARE(store->getSecret(QStringLiteral("droid_key")), QStringLiteral("droid_val"));

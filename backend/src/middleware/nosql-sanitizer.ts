@@ -6,7 +6,7 @@ function hasForbiddenKeys(obj: any): boolean {
   }
 
   for (const key of Object.keys(obj)) {
-    if (key.startsWith('$') || key.includes('.')) {
+    if (key.includes('$') || key.includes('.')) {
       return true;
     }
     if (typeof obj[key] === 'object' && hasForbiddenKeys(obj[key])) {

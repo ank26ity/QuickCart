@@ -126,9 +126,31 @@ QtObject {
     function formatPaise(paise) {
         if (paise === undefined || paise === null) return "₹0.00"
         var p = Number(paise)
-        var rs = Math.floor(p / 100)
-        var ps = Math.abs(p % 100)
-        return "₹" + rs + "." + (ps < 10 ? "0" : "") + ps
+        var isNeg = p < 0
+        var absP = Math.abs(p)
+        var rs = Math.floor(absP / 100).toString()
+        var ps = Math.floor(absP % 100)
+        var fraction = (ps < 10 ? "0" : "") + ps
+
+        var formattedRs = ""
+        if (rs.length <= 3) {
+            formattedRs = rs
+        } else {
+            var lastThree = rs.substring(rs.length - 3)
+            var otherNumbers = rs.substring(0, rs.length - 3)
+            var groups = []
+            while (otherNumbers.length > 2) {
+                groups.unshift(otherNumbers.substring(otherNumbers.length - 2))
+                otherNumbers = otherNumbers.substring(0, otherNumbers.length - 2)
+            }
+            if (otherNumbers.length > 0) {
+                groups.unshift(otherNumbers)
+            }
+            groups.push(lastThree)
+            formattedRs = groups.join(",")
+        }
+
+        return (isNeg ? "-₹" : "₹") + formattedRs + "." + fraction
     }
 }
 

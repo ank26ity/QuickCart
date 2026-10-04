@@ -481,6 +481,17 @@ export function createApiRouter(db: Db, client: MongoClient, realtimeService?: R
     }
   });
 
+  router.post('/courier/documents/verify', authenticateJwt, async (req: AuthenticatedRequest, res: Response) => {
+    const { docType, fileKey, actualBytes, actualMime } = req.body;
+    const courierId = req.user?.userId || req.body.courierId;
+    try {
+      const result = await courierService.verifyUploadedDocument(courierId, docType, fileKey, actualBytes, actualMime);
+      res.status(200).json(result);
+    } catch (err: any) {
+      res.status(err.status || 400).json({ error: 'Verification failed', message: err.message });
+    }
+  });
+
   // ── Admin Endpoints (RBAC Enforced) ───────────────────────────────────────
   const adminAuth = [authenticateJwt, requireRole('admin')];
 

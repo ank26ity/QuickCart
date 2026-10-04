@@ -27,6 +27,9 @@ int main(int argc, char *argv[])
     // Initialize structured logging categories and PII filter
     StructuredLogger::init();
 
+    // Enforce high-DPI fractional scale factor passthrough for sharp multi-monitor scaling
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+
     QGuiApplication app(argc, argv);
 
     app.setOrganizationName("QuickShopp");
